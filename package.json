@@ -9,7 +9,7 @@
     "build:client": "cd client && pnpm build",
     "build:server": "cd server && pnpm build",
     "build": "pnpm run build:client && pnpm run build:server",
-    "start": "cd server && pnpm start",
+    "start": "node server/dist/index.js",
     "install:all": "cd server && pnpm install && cd ../client && pnpm install"
   }
 }

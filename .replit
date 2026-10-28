@@ -1,0 +1,10 @@
+run = "node server/dist/index.js"
+entrypoint = "server/dist/index.js"
+
+[deployment]
+run = ["node", "server/dist/index.js"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
