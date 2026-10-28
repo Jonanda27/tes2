@@ -22,6 +22,10 @@ const roomManager = new RoomManager(io);
 app.get('/api/rooms', (req, res) => {
     res.json(roomManager.listRooms());
 });
+// API endpoint to list active 3D lounge players
+app.get('/api/lobby-players', (req, res) => {
+    res.json(roomManager.getLobbyPlayers());
+});
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });

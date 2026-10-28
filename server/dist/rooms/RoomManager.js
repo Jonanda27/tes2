@@ -47,6 +47,9 @@ export class RoomManager {
         }
         return list;
     }
+    getLobbyPlayers() {
+        return Array.from(this.lobbyPlayers.values());
+    }
     handleSocketConnection(socket) {
         // === 0. 3D Casino Lounge Presence & Movement ===
         socket.on('lobby:join', ({ name, suitColorIdx, position }) => {
@@ -60,11 +63,16 @@ export class RoomManager {
                 isMoving: false
             };
             this.lobbyPlayers.set(socket.id, player);
+            console.log(`[LOBBY 3D] "${player.name}" (${socket.id}) entered Lounge. Total online in Lounge: ${this.lobbyPlayers.size}`);
             // Send all existing lobby players to this client
             const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
             socket.emit('lobby:all-players', otherPlayers);
             // Broadcast to everyone else in the lounge
             socket.to('casino-lobby').emit('lobby:player-joined', player);
+        });
+        socket.on('lobby:request-sync', () => {
+            const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
+            socket.emit('lobby:all-players', otherPlayers);
         });
         socket.on('lobby:move', ({ position, rotationY, isMoving }) => {
             const player = this.lobbyPlayers.get(socket.id);
@@ -96,18 +104,14 @@ export class RoomManager {
         });
         socket.on('lobby:leave', () => {
             if (this.lobbyPlayers.has(socket.id)) {
+                const player = this.lobbyPlayers.get(socket.id);
                 this.lobbyPlayers.delete(socket.id);
                 socket.leave('casino-lobby');
-                socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id });
+                socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id, name: player?.name });
             }
         });
-        // 1. Join room
+        // 1. Join poker room
         socket.on('joinRoom', ({ roomId, playerName }) => {
-            if (this.lobbyPlayers.has(socket.id)) {
-                this.lobbyPlayers.delete(socket.id);
-                socket.leave('casino-lobby');
-                socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id });
-            }
             const cleanId = (roomId || 'meja-1').trim().toLowerCase();
             const currentRoom = this.socketToRoom.get(socket.id);
             if (currentRoom && currentRoom !== cleanId) {

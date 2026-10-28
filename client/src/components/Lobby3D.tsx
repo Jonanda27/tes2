@@ -185,10 +185,39 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
   // Multiplayer Lounge references & state
   const [onlineLobbyCount, setOnlineLobbyCount] = useState<number>(1);
+  const [remotePlayersList, setRemotePlayersList] = useState<Array<{ id: string; name: string; suitColorIdx: number; position: [number, number, number] }>>([]);
+  const [loungeToast, setLoungeToast] = useState<string | null>(null);
   const otherPlayersRef = useRef<Map<string, RemotePlayer>>(new Map());
-  const createAvatarRef = useRef<((name: string, outfitIdx: number, isLocal: boolean) => any) | null>(null);
+  const pendingRemotePlayersRef = useRef<Map<string, { id: string; name: string; suitColorIdx: number; position: [number, number, number] }>>(new Map());
   const lastMoveEmitTimeRef = useRef<number>(0);
   const lastWasMovingRef = useRef<boolean>(false);
+
+  const showLoungeToast = useCallback((msg: string) => {
+    setLoungeToast(msg);
+    setTimeout(() => {
+      setLoungeToast(curr => (curr === msg ? null : curr));
+    }, 3800);
+  }, []);
+
+  const handleTeleportToPlayer = useCallback((targetPlayer: { id: string; name: string; suitColorIdx: number; position: [number, number, number] }) => {
+    const targetX = targetPlayer.position[0] + 1.2;
+    const targetZ = targetPlayer.position[2] + 1.2;
+    playerPosRef.current = { x: targetX, z: targetZ };
+    if (characterGroupRef.current) {
+      characterGroupRef.current.position.set(targetX, 0, targetZ);
+    }
+    const dx = targetPlayer.position[0] - targetX;
+    const dz = targetPlayer.position[2] - targetZ;
+    playerHeadingRef.current = Math.atan2(dx, dz);
+    if (socket) {
+      socket.emit('lobby:move', {
+        position: [targetX, 0, targetZ],
+        rotationY: playerHeadingRef.current,
+        isMoving: false
+      });
+    }
+    showLoungeToast(`Mendekati ${targetPlayer.name}! 🚀`);
+  }, [socket, showLoungeToast]);
 
   // Click destination marker
   const clickMarkerRef = useRef<THREE.Mesh | null>(null);
@@ -276,11 +305,162 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     return texture;
   };
 
-  const addOrUpdateRemotePlayer = useCallback((p: { id: string; name: string; suitColorIdx: number; position: [number, number, number]; rotationY?: number }) => {
-    if (!sceneRef.current || !createAvatarRef.current) return;
+  // Helper to create character avatar (for local player and multiplayer friends)
+  const createAvatar = useCallback((name: string, outfitIdx: number, isLocal: boolean) => {
+    const charGroup = new THREE.Group();
+
+    const shadowGeo = new THREE.CircleGeometry(0.65, 24);
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 });
+    const shadowBlob = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowBlob.rotation.x = -Math.PI / 2;
+    shadowBlob.position.y = 0.02;
+    charGroup.add(shadowBlob);
+
+    const ringGeo = new THREE.RingGeometry(0.55, 0.68, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: isLocal ? 0xf59e0b : 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.03;
+    charGroup.add(ring);
+
+    const suitColor = OUTFIT_COLORS[outfitIdx % OUTFIT_COLORS.length].colorVal;
+    const bodyMat = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.55 });
+    const bodyGeo = new THREE.BoxGeometry(0.65, 0.85, 0.42);
+    const bMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    bMesh.position.y = 1.35;
+    bMesh.castShadow = true;
+    charGroup.add(bMesh);
+
+    const shirtMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, 0.35, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    );
+    shirtMesh.position.set(0, 0.25, 0.21);
+    bMesh.add(shirtMesh);
+
+    const tieMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.45, 0.06),
+      new THREE.MeshStandardMaterial({ color: isLocal ? 0xd97706 : 0x0284c7, roughness: 0.3, metalness: 0.4 })
+    );
+    tieMesh.position.set(0, 0.1, 0.22);
+    bMesh.add(tieMesh);
+
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c8a3, roughness: 0.7 });
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), skinMat);
+    headMesh.position.set(0, 2.05, 0);
+    headMesh.castShadow = true;
+    charGroup.add(headMesh);
+
+    const hairMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x1f140e, roughness: 0.8 })
+    );
+    hairMesh.position.set(0, 2.12, 0);
+    charGroup.add(hairMesh);
+
+    const glassesMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.1, 0.14),
+      new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
+    );
+    glassesMesh.position.set(0, 2.06, 0.24);
+    charGroup.add(glassesMesh);
+
+    const armGeo = new THREE.BoxGeometry(0.18, 0.7, 0.18);
+    const handGeo = new THREE.SphereGeometry(0.1, 10, 10);
+
+    const lArm = new THREE.Group();
+    lArm.position.set(-0.44, 1.7, 0);
+    const lArmMesh = new THREE.Mesh(armGeo, bodyMat);
+    lArmMesh.position.y = -0.35;
+    lArmMesh.castShadow = true;
+    lArm.add(lArmMesh);
+    const lHand = new THREE.Mesh(handGeo, skinMat);
+    lHand.position.y = -0.72;
+    lArm.add(lHand);
+    charGroup.add(lArm);
+
+    const rArm = new THREE.Group();
+    rArm.position.set(0.44, 1.7, 0);
+    const rArmMesh = new THREE.Mesh(armGeo, bodyMat);
+    rArmMesh.position.y = -0.35;
+    rArmMesh.castShadow = true;
+    rArm.add(rArmMesh);
+    const rHand = new THREE.Mesh(handGeo, skinMat);
+    rHand.position.y = -0.72;
+    rArm.add(rHand);
+    charGroup.add(rArm);
+
+    const legGeo = new THREE.BoxGeometry(0.22, 0.85, 0.22);
+    const shoeGeo = new THREE.BoxGeometry(0.24, 0.16, 0.38);
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.7 });
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.2, metalness: 0.5 });
+
+    const lLeg = new THREE.Group();
+    lLeg.position.set(-0.18, 0.9, 0);
+    const lLegMesh = new THREE.Mesh(legGeo, pantsMat);
+    lLegMesh.position.y = -0.42;
+    lLegMesh.castShadow = true;
+    lLeg.add(lLegMesh);
+    const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    lShoe.position.set(0, -0.86, 0.06);
+    lShoe.castShadow = true;
+    lLeg.add(lShoe);
+    charGroup.add(lLeg);
+
+    const rLeg = new THREE.Group();
+    rLeg.position.set(0.18, 0.9, 0);
+    const rLegMesh = new THREE.Mesh(legGeo, pantsMat);
+    rLegMesh.position.y = -0.42;
+    rLegMesh.castShadow = true;
+    rLeg.add(rLegMesh);
+    const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    rShoe.position.set(0, -0.86, 0.06);
+    rShoe.castShadow = true;
+    rLeg.add(rShoe);
+    charGroup.add(rLeg);
+
+    const nametagTexture = updateNametagCanvas(name, isLocal);
+    const nametagMat = new THREE.SpriteMaterial({ map: nametagTexture || undefined, transparent: true });
+    const nametagSprite = new THREE.Sprite(nametagMat);
+    nametagSprite.scale.set(2.4, 0.8, 1.0);
+    nametagSprite.position.set(0, 2.7, 0);
+    charGroup.add(nametagSprite);
+
+    return {
+      group: charGroup,
+      ring,
+      bodyMesh: bMesh,
+      leftArm: lArm,
+      rightArm: rArm,
+      leftLeg: lLeg,
+      rightLeg: rLeg,
+      nametagSprite
+    };
+  }, []);
+
+  const addOrUpdateRemotePlayer = useCallback((p: { id: string; name: string; suitColorIdx: number; position: [number, number, number]; rotationY?: number; isMoving?: boolean }) => {
+    // Save to pending map
+    pendingRemotePlayersRef.current.set(p.id, {
+      id: p.id,
+      name: p.name,
+      suitColorIdx: p.suitColorIdx,
+      position: p.position
+    });
+
+    // Update React state for UI
+    setRemotePlayersList(Array.from(pendingRemotePlayersRef.current.values()));
+    setOnlineLobbyCount(pendingRemotePlayersRef.current.size + 1);
+
+    if (!sceneRef.current) return;
+
     let remote = otherPlayersRef.current.get(p.id);
     if (!remote) {
-      const avatar = createAvatarRef.current(p.name, p.suitColorIdx, false);
+      const avatar = createAvatar(p.name, p.suitColorIdx, false);
       avatar.group.position.set(p.position[0], 0, p.position[2]);
       if (typeof p.rotationY === 'number') avatar.group.rotation.y = p.rotationY;
       sceneRef.current.add(avatar.group);
@@ -299,24 +479,30 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         walkCycle: 0,
         targetPos: { x: p.position[0], z: p.position[2] },
         targetRotY: p.rotationY || 0,
-        isMoving: false
+        isMoving: p.isMoving || false
       };
       otherPlayersRef.current.set(p.id, remote);
-      setOnlineLobbyCount(otherPlayersRef.current.size + 1);
     } else {
       remote.targetPos = { x: p.position[0], z: p.position[2] };
       if (typeof p.rotationY === 'number') remote.targetRotY = p.rotationY;
+      if (typeof p.isMoving === 'boolean') remote.isMoving = p.isMoving;
     }
-  }, []);
+  }, [createAvatar]);
 
-  const removeRemotePlayer = useCallback((id: string) => {
+  const removeRemotePlayer = useCallback((id: string, name?: string) => {
+    pendingRemotePlayersRef.current.delete(id);
+    setRemotePlayersList(Array.from(pendingRemotePlayersRef.current.values()));
+    setOnlineLobbyCount(pendingRemotePlayersRef.current.size + 1);
+
     const remote = otherPlayersRef.current.get(id);
     if (remote && sceneRef.current) {
       sceneRef.current.remove(remote.group);
       otherPlayersRef.current.delete(id);
-      setOnlineLobbyCount(otherPlayersRef.current.size + 1);
     }
-  }, []);
+    if (name) {
+      showLoungeToast(`🚪 ${name} keluar dari Lounge`);
+    }
+  }, [showLoungeToast]);
 
   const updateRemotePlayerVisuals = useCallback((data: { id: string; suitColorIdx?: number; name?: string }) => {
     const remote = otherPlayersRef.current.get(data.id);
@@ -358,6 +544,8 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     const onPlayerJoined = (player: any) => {
       if (player && player.id !== socket.id) {
         addOrUpdateRemotePlayer(player);
+        soundEffects.playChatPop();
+        showLoungeToast(`👋 ${player.name} baru saja masuk ke Casino Lounge!`);
       }
     };
 
@@ -374,8 +562,8 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       updateRemotePlayerVisuals(data);
     };
 
-    const onPlayerLeft = (data: { id: string }) => {
-      removeRemotePlayer(data.id);
+    const onPlayerLeft = (data: { id: string; name?: string }) => {
+      removeRemotePlayer(data.id, data.name);
     };
 
     socket.on('lobby:all-players', onAllPlayers);
@@ -391,7 +579,34 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       position: [playerPosRef.current.x, 0, playerPosRef.current.z]
     });
 
+    // Periodic sync with server via HTTP fallback every 2.5s
+    const syncLobby = async () => {
+      try {
+        const serverUrl = import.meta.env.VITE_SERVER_URL || '';
+        const res = await fetch(`${serverUrl}/api/lobby-players`);
+        if (res.ok) {
+          const players: any[] = await res.json();
+          const myId = socket?.id;
+          players.forEach(p => {
+            if (p && p.id !== myId) {
+              addOrUpdateRemotePlayer(p);
+            }
+          });
+          const activeIds = new Set(players.map(p => p.id));
+          pendingRemotePlayersRef.current.forEach((_, id) => {
+            if (!activeIds.has(id)) {
+              removeRemotePlayer(id);
+            }
+          });
+        }
+      } catch {}
+    };
+
+    syncLobby();
+    const syncInterval = setInterval(syncLobby, 2500);
+
     return () => {
+      clearInterval(syncInterval);
       socket.emit('lobby:leave');
       socket.off('lobby:all-players', onAllPlayers);
       socket.off('lobby:player-joined', onPlayerJoined);
@@ -399,7 +614,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       socket.off('lobby:player-updated', onPlayerUpdated);
       socket.off('lobby:player-left', onPlayerLeft);
     };
-  }, [socket, addOrUpdateRemotePlayer, removeRemotePlayer, updateRemotePlayerVisuals, playerName, suitColorIdx]);
+  }, [socket, addOrUpdateRemotePlayer, removeRemotePlayer, updateRemotePlayerVisuals, playerName, suitColorIdx, showLoungeToast]);
 
   // Helper to create Procedural Carpet Texture
   const createProceduralCarpetTexture = (): THREE.CanvasTexture => {
@@ -1034,146 +1249,6 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     scene.add(clickMarker);
     clickMarkerRef.current = clickMarker;
 
-    // Helper to create character avatar (for local player and multiplayer friends)
-    const createAvatar = (name: string, outfitIdx: number, isLocal: boolean) => {
-      const charGroup = new THREE.Group();
-
-      const shadowGeo = new THREE.CircleGeometry(0.65, 24);
-      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 });
-      const shadowBlob = new THREE.Mesh(shadowGeo, shadowMat);
-      shadowBlob.rotation.x = -Math.PI / 2;
-      shadowBlob.position.y = 0.02;
-      charGroup.add(shadowBlob);
-
-      const ringGeo = new THREE.RingGeometry(0.55, 0.68, 32);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: isLocal ? 0xf59e0b : 0x38bdf8,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.03;
-      charGroup.add(ring);
-
-      const suitColor = OUTFIT_COLORS[outfitIdx % OUTFIT_COLORS.length].colorVal;
-      const bodyMat = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.55 });
-      const bodyGeo = new THREE.BoxGeometry(0.65, 0.85, 0.42);
-      const bMesh = new THREE.Mesh(bodyGeo, bodyMat);
-      bMesh.position.y = 1.35;
-      bMesh.castShadow = true;
-      charGroup.add(bMesh);
-
-      const shirtMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.25, 0.35, 0.05),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
-      );
-      shirtMesh.position.set(0, 0.25, 0.21);
-      bMesh.add(shirtMesh);
-
-      const tieMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.45, 0.06),
-        new THREE.MeshStandardMaterial({ color: isLocal ? 0xd97706 : 0x0284c7, roughness: 0.3, metalness: 0.4 })
-      );
-      tieMesh.position.set(0, 0.1, 0.22);
-      bMesh.add(tieMesh);
-
-      const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c8a3, roughness: 0.7 });
-      const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), skinMat);
-      headMesh.position.set(0, 2.05, 0);
-      headMesh.castShadow = true;
-      charGroup.add(headMesh);
-
-      const hairMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
-        new THREE.MeshStandardMaterial({ color: 0x1f140e, roughness: 0.8 })
-      );
-      hairMesh.position.set(0, 2.12, 0);
-      charGroup.add(hairMesh);
-
-      const glassesMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.36, 0.1, 0.14),
-        new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
-      );
-      glassesMesh.position.set(0, 2.06, 0.24);
-      charGroup.add(glassesMesh);
-
-      const armGeo = new THREE.BoxGeometry(0.18, 0.7, 0.18);
-      const handGeo = new THREE.SphereGeometry(0.1, 10, 10);
-
-      const lArm = new THREE.Group();
-      lArm.position.set(-0.44, 1.7, 0);
-      const lArmMesh = new THREE.Mesh(armGeo, bodyMat);
-      lArmMesh.position.y = -0.35;
-      lArmMesh.castShadow = true;
-      lArm.add(lArmMesh);
-      const lHand = new THREE.Mesh(handGeo, skinMat);
-      lHand.position.y = -0.72;
-      lArm.add(lHand);
-      charGroup.add(lArm);
-
-      const rArm = new THREE.Group();
-      rArm.position.set(0.44, 1.7, 0);
-      const rArmMesh = new THREE.Mesh(armGeo, bodyMat);
-      rArmMesh.position.y = -0.35;
-      rArmMesh.castShadow = true;
-      rArm.add(rArmMesh);
-      const rHand = new THREE.Mesh(handGeo, skinMat);
-      rHand.position.y = -0.72;
-      rArm.add(rHand);
-      charGroup.add(rArm);
-
-      const legGeo = new THREE.BoxGeometry(0.22, 0.85, 0.22);
-      const shoeGeo = new THREE.BoxGeometry(0.24, 0.16, 0.38);
-      const pantsMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.7 });
-      const shoeMat = new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.2, metalness: 0.5 });
-
-      const lLeg = new THREE.Group();
-      lLeg.position.set(-0.18, 0.9, 0);
-      const lLegMesh = new THREE.Mesh(legGeo, pantsMat);
-      lLegMesh.position.y = -0.42;
-      lLegMesh.castShadow = true;
-      lLeg.add(lLegMesh);
-      const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
-      lShoe.position.set(0, -0.86, 0.06);
-      lShoe.castShadow = true;
-      lLeg.add(lShoe);
-      charGroup.add(lLeg);
-
-      const rLeg = new THREE.Group();
-      rLeg.position.set(0.18, 0.9, 0);
-      const rLegMesh = new THREE.Mesh(legGeo, pantsMat);
-      rLegMesh.position.y = -0.42;
-      rLegMesh.castShadow = true;
-      rLeg.add(rLegMesh);
-      const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
-      rShoe.position.set(0, -0.86, 0.06);
-      rShoe.castShadow = true;
-      rLeg.add(rShoe);
-      charGroup.add(rLeg);
-
-      const nametagTexture = updateNametagCanvas(name, isLocal);
-      const nametagMat = new THREE.SpriteMaterial({ map: nametagTexture || undefined, transparent: true });
-      const nametagSprite = new THREE.Sprite(nametagMat);
-      nametagSprite.scale.set(2.4, 0.8, 1.0);
-      nametagSprite.position.set(0, 2.7, 0);
-      charGroup.add(nametagSprite);
-
-      return {
-        group: charGroup,
-        ring,
-        bodyMesh: bMesh,
-        leftArm: lArm,
-        rightArm: rArm,
-        leftLeg: lLeg,
-        rightLeg: rLeg,
-        nametagSprite
-      };
-    };
-
-    createAvatarRef.current = createAvatar;
-
     // 8. 3D Character Avatar Setup (Local Player)
     const localAvatar = createAvatar(playerName, suitColorIdx, true);
     localAvatar.group.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
@@ -1187,6 +1262,31 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     nametagSpriteRef.current = localAvatar.nametagSprite;
 
     scene.add(localAvatar.group);
+
+    // Re-hydrate any remote players that arrived before Three.js scene mounted
+    pendingRemotePlayersRef.current.forEach(p => {
+      if (!otherPlayersRef.current.has(p.id)) {
+        const avatar = createAvatar(p.name, p.suitColorIdx, false);
+        avatar.group.position.set(p.position[0], 0, p.position[2]);
+        scene.add(avatar.group);
+        otherPlayersRef.current.set(p.id, {
+          id: p.id,
+          name: p.name,
+          suitColorIdx: p.suitColorIdx,
+          group: avatar.group,
+          bodyMesh: avatar.bodyMesh,
+          leftArm: avatar.leftArm,
+          rightArm: avatar.rightArm,
+          leftLeg: avatar.leftLeg,
+          rightLeg: avatar.rightLeg,
+          nametagSprite: avatar.nametagSprite,
+          walkCycle: 0,
+          targetPos: { x: p.position[0], z: p.position[2] },
+          targetRotY: 0,
+          isMoving: false
+        });
+      }
+    });
 
     // Initial position if initialTableId provided
     if (initialTableId) {
@@ -1896,6 +1996,148 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           </button>
         </div>
       </header>
+
+      {/* Floating Lounge Toast Notification Banner */}
+      {loungeToast && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 60,
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+            border: '1px solid #f59e0b',
+            boxShadow: '0 8px 32px rgba(245, 158, 11, 0.4)',
+            borderRadius: '999px',
+            padding: '10px 24px',
+            color: '#fef08a',
+            fontSize: '13px',
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            pointerEvents: 'none'
+          }}
+        >
+          <span>{loungeToast}</span>
+        </div>
+      )}
+
+      {/* Floating Active Players in Lounge Panel */}
+      <div
+        className="lobby-ui-element"
+        style={{
+          position: 'absolute',
+          top: '80px',
+          left: '16px',
+          zIndex: 25,
+          background: 'rgba(15, 23, 42, 0.90)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '16px',
+          padding: '12px 14px',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.65)',
+          width: '270px',
+          pointerEvents: 'auto'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>
+              Pemain di Lounge ({remotePlayersList.length + 1})
+            </span>
+          </div>
+          <span style={{ fontSize: '10px', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '999px' }}>
+            Live 3D
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+          {/* Local Player */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '8px',
+              padding: '6px 10px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  background: OUTFIT_COLORS[suitColorIdx % OUTFIT_COLORS.length].hex,
+                  border: '1px solid #ffffff'
+                }}
+              />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a' }}>
+                {playerName} (Anda)
+              </span>
+            </div>
+            <span style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 800 }}>👑 VIP</span>
+          </div>
+
+          {/* Other Players */}
+          {remotePlayersList.length === 0 ? (
+            <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', padding: '6px 4px' }}>
+              Menunggu teman bergabung ke Lounge...
+            </div>
+          ) : (
+            remotePlayersList.map((player) => (
+              <div
+                key={player.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  borderRadius: '8px',
+                  padding: '6px 10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: OUTFIT_COLORS[player.suitColorIdx % OUTFIT_COLORS.length]?.hex || '#38bdf8',
+                      border: '1px solid #38bdf8'
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0' }}>
+                    {player.name}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleTeleportToPlayer(player)}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#38bdf8',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Jalan mendekati posisi teman ini"
+                >
+                  📍 Temui
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Mini-map / Room Compass HUD in Bottom Left */}
       <div

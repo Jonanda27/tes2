@@ -173,7 +173,9 @@ export const App: React.FC = () => {
     });
 
     s.on('connect', () => {
-      s.emit('joinRoom', { roomId, playerName });
+      if (viewMode === 'table') {
+        s.emit('joinRoom', { roomId, playerName });
+      }
       voiceChat.init(s);
     });
 
