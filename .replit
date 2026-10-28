@@ -1,8 +1,12 @@
-run = "node server/dist/index.js"
+modules = ["nodejs-20"]
+run = "npm start"
 entrypoint = "server/dist/index.js"
 
+[nix]
+channel = "stable-24_05"
+
 [deployment]
-run = ["node", "server/dist/index.js"]
+run = ["npm", "start"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
