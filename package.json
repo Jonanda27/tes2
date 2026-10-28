@@ -1,0 +1,15 @@
+{
+  "name": "texas-holdem-online",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "cd server && pnpm dev",
+    "dev:client": "cd client && pnpm dev",
+    "dev": "pnpm --parallel --filter \"./server\" --filter \"./client\" dev || (start cmd /k \"cd server && pnpm dev\" & cd client && pnpm dev)",
+    "build:client": "cd client && pnpm build",
+    "build:server": "cd server && pnpm build",
+    "build": "pnpm run build:client && pnpm run build:server",
+    "start": "cd server && pnpm start",
+    "install:all": "cd server && pnpm install && cd ../client && pnpm install"
+  }
+}
