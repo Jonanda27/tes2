@@ -113,6 +113,7 @@ export const OUTFIT_COLORS = [
 ];
 
 interface Lobby3DProps {
+  socket?: any;
   playerName: string;
   onUpdatePlayerName: (name: string) => void;
   onSelectTable: (roomId: string) => void;
@@ -121,7 +122,25 @@ interface Lobby3DProps {
   initialTableId?: string;
 }
 
+interface RemotePlayer {
+  id: string;
+  name: string;
+  suitColorIdx: number;
+  group: THREE.Group;
+  bodyMesh: THREE.Mesh;
+  leftArm: THREE.Group;
+  rightArm: THREE.Group;
+  leftLeg: THREE.Group;
+  rightLeg: THREE.Group;
+  nametagSprite: THREE.Sprite;
+  walkCycle: number;
+  targetPos: { x: number; z: number };
+  targetRotY: number;
+  isMoving: boolean;
+}
+
 export const Lobby3D: React.FC<Lobby3DProps> = ({
+  socket,
   playerName,
   onUpdatePlayerName,
   onSelectTable,
@@ -163,6 +182,13 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const rightLegRef = useRef<THREE.Group | null>(null);
   const nametagSpriteRef = useRef<THREE.Sprite | null>(null);
   const playerRingRef = useRef<THREE.Mesh | null>(null);
+
+  // Multiplayer Lounge references & state
+  const [onlineLobbyCount, setOnlineLobbyCount] = useState<number>(1);
+  const otherPlayersRef = useRef<Map<string, RemotePlayer>>(new Map());
+  const createAvatarRef = useRef<((name: string, outfitIdx: number, isLocal: boolean) => any) | null>(null);
+  const lastMoveEmitTimeRef = useRef<number>(0);
+  const lastWasMovingRef = useRef<boolean>(false);
 
   // Click destination marker
   const clickMarkerRef = useRef<THREE.Mesh | null>(null);
@@ -217,7 +243,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   }, [fetchRoomStats]);
 
   // Update nametag sprite when player name changes
-  const updateNametagCanvas = (name: string) => {
+  const updateNametagCanvas = (name: string, isLocal: boolean = true) => {
     const canvas = document.createElement('canvas');
     canvas.width = 384;
     canvas.height = 128;
@@ -227,28 +253,153 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     ctx.clearRect(0, 0, 384, 128);
 
     // Pill background
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.strokeStyle = '#f59e0b';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.strokeStyle = isLocal ? '#f59e0b' : '#38bdf8';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.roundRect(16, 24, 352, 80, 40);
     ctx.fill();
     ctx.stroke();
 
-    // VIP Crown / Badge
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.fillText('👑 VIP', 36, 73);
+    // Badge
+    ctx.fillStyle = isLocal ? '#f59e0b' : '#38bdf8';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText(isLocal ? '👑 VIP' : '👤 TAMU', 36, 73);
 
     // Name text
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 30px "Outfit", sans-serif';
-    ctx.fillText(name.length > 14 ? name.substring(0, 13) + '…' : name, 135, 73);
+    ctx.font = 'bold 28px "Outfit", sans-serif';
+    ctx.fillText(name.length > 13 ? name.substring(0, 12) + '…' : name, 140, 73);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     return texture;
   };
+
+  const addOrUpdateRemotePlayer = useCallback((p: { id: string; name: string; suitColorIdx: number; position: [number, number, number]; rotationY?: number }) => {
+    if (!sceneRef.current || !createAvatarRef.current) return;
+    let remote = otherPlayersRef.current.get(p.id);
+    if (!remote) {
+      const avatar = createAvatarRef.current(p.name, p.suitColorIdx, false);
+      avatar.group.position.set(p.position[0], 0, p.position[2]);
+      if (typeof p.rotationY === 'number') avatar.group.rotation.y = p.rotationY;
+      sceneRef.current.add(avatar.group);
+
+      remote = {
+        id: p.id,
+        name: p.name,
+        suitColorIdx: p.suitColorIdx,
+        group: avatar.group,
+        bodyMesh: avatar.bodyMesh,
+        leftArm: avatar.leftArm,
+        rightArm: avatar.rightArm,
+        leftLeg: avatar.leftLeg,
+        rightLeg: avatar.rightLeg,
+        nametagSprite: avatar.nametagSprite,
+        walkCycle: 0,
+        targetPos: { x: p.position[0], z: p.position[2] },
+        targetRotY: p.rotationY || 0,
+        isMoving: false
+      };
+      otherPlayersRef.current.set(p.id, remote);
+      setOnlineLobbyCount(otherPlayersRef.current.size + 1);
+    } else {
+      remote.targetPos = { x: p.position[0], z: p.position[2] };
+      if (typeof p.rotationY === 'number') remote.targetRotY = p.rotationY;
+    }
+  }, []);
+
+  const removeRemotePlayer = useCallback((id: string) => {
+    const remote = otherPlayersRef.current.get(id);
+    if (remote && sceneRef.current) {
+      sceneRef.current.remove(remote.group);
+      otherPlayersRef.current.delete(id);
+      setOnlineLobbyCount(otherPlayersRef.current.size + 1);
+    }
+  }, []);
+
+  const updateRemotePlayerVisuals = useCallback((data: { id: string; suitColorIdx?: number; name?: string }) => {
+    const remote = otherPlayersRef.current.get(data.id);
+    if (remote) {
+      if (typeof data.suitColorIdx === 'number') {
+        remote.suitColorIdx = data.suitColorIdx;
+        const col = OUTFIT_COLORS[data.suitColorIdx % OUTFIT_COLORS.length].colorVal;
+        (remote.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(col);
+        const leftArmMesh = remote.leftArm.children[0] as THREE.Mesh;
+        if (leftArmMesh) (leftArmMesh.material as THREE.MeshStandardMaterial).color.setHex(col);
+        const rightArmMesh = remote.rightArm.children[0] as THREE.Mesh;
+        if (rightArmMesh) (rightArmMesh.material as THREE.MeshStandardMaterial).color.setHex(col);
+      }
+      if (data.name) {
+        remote.name = data.name;
+        const tex = updateNametagCanvas(data.name, false);
+        if (tex) {
+          remote.nametagSprite.material.map = tex;
+          remote.nametagSprite.material.needsUpdate = true;
+        }
+      }
+    }
+  }, []);
+
+  // Socket multiplayer presence listeners in 3D Lounge
+  useEffect(() => {
+    if (!socket) return;
+
+    const onAllPlayers = (players: any[]) => {
+      if (Array.isArray(players)) {
+        players.forEach(p => {
+          if (p && p.id !== socket.id) {
+            addOrUpdateRemotePlayer(p);
+          }
+        });
+      }
+    };
+
+    const onPlayerJoined = (player: any) => {
+      if (player && player.id !== socket.id) {
+        addOrUpdateRemotePlayer(player);
+      }
+    };
+
+    const onPlayerMoved = (data: { id: string; position: [number, number, number]; rotationY: number; isMoving: boolean }) => {
+      const remote = otherPlayersRef.current.get(data.id);
+      if (remote) {
+        remote.targetPos = { x: data.position[0], z: data.position[2] };
+        remote.targetRotY = data.rotationY;
+        remote.isMoving = data.isMoving;
+      }
+    };
+
+    const onPlayerUpdated = (data: { id: string; suitColorIdx?: number; name?: string }) => {
+      updateRemotePlayerVisuals(data);
+    };
+
+    const onPlayerLeft = (data: { id: string }) => {
+      removeRemotePlayer(data.id);
+    };
+
+    socket.on('lobby:all-players', onAllPlayers);
+    socket.on('lobby:player-joined', onPlayerJoined);
+    socket.on('lobby:player-moved', onPlayerMoved);
+    socket.on('lobby:player-updated', onPlayerUpdated);
+    socket.on('lobby:player-left', onPlayerLeft);
+
+    // Announce presence in 3D Casino Lounge
+    socket.emit('lobby:join', {
+      name: playerName,
+      suitColorIdx,
+      position: [playerPosRef.current.x, 0, playerPosRef.current.z]
+    });
+
+    return () => {
+      socket.emit('lobby:leave');
+      socket.off('lobby:all-players', onAllPlayers);
+      socket.off('lobby:player-joined', onPlayerJoined);
+      socket.off('lobby:player-moved', onPlayerMoved);
+      socket.off('lobby:player-updated', onPlayerUpdated);
+      socket.off('lobby:player-left', onPlayerLeft);
+    };
+  }, [socket, addOrUpdateRemotePlayer, removeRemotePlayer, updateRemotePlayerVisuals, playerName, suitColorIdx]);
 
   // Helper to create Procedural Carpet Texture
   const createProceduralCarpetTexture = (): THREE.CanvasTexture => {
@@ -883,152 +1034,159 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     scene.add(clickMarker);
     clickMarkerRef.current = clickMarker;
 
-    // 8. 3D Character Avatar Setup
-    const characterGroup = new THREE.Group();
-    characterGroup.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
-    characterGroupRef.current = characterGroup;
+    // Helper to create character avatar (for local player and multiplayer friends)
+    const createAvatar = (name: string, outfitIdx: number, isLocal: boolean) => {
+      const charGroup = new THREE.Group();
 
-    // Soft Circular Shadow Blob beneath Character
-    const shadowGeo = new THREE.CircleGeometry(0.65, 24);
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 });
-    const shadowBlob = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowBlob.rotation.x = -Math.PI / 2;
-    shadowBlob.position.y = 0.02;
-    characterGroup.add(shadowBlob);
+      const shadowGeo = new THREE.CircleGeometry(0.65, 24);
+      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45 });
+      const shadowBlob = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowBlob.rotation.x = -Math.PI / 2;
+      shadowBlob.position.y = 0.02;
+      charGroup.add(shadowBlob);
 
-    // Glowing Interactive Floor Ring around Feet
-    const ringGeo = new THREE.RingGeometry(0.55, 0.68, 32);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-    const playerRing = new THREE.Mesh(ringGeo, ringMat);
-    playerRing.rotation.x = -Math.PI / 2;
-    playerRing.position.y = 0.03;
-    characterGroup.add(playerRing);
-    playerRingRef.current = playerRing;
+      const ringGeo = new THREE.RingGeometry(0.55, 0.68, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: isLocal ? 0xf59e0b : 0x38bdf8,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.03;
+      charGroup.add(ring);
 
-    // Body / Torso (Tailored Suit Jacket)
-    const suitColor = OUTFIT_COLORS[suitColorIdx].colorVal;
-    const bodyMat = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.55 });
-    const bodyGeo = new THREE.BoxGeometry(0.65, 0.85, 0.42);
-    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.position.y = 1.35;
-    bodyMesh.castShadow = true;
-    characterGroup.add(bodyMesh);
-    bodyMeshRef.current = bodyMesh;
+      const suitColor = OUTFIT_COLORS[outfitIdx % OUTFIT_COLORS.length].colorVal;
+      const bodyMat = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.55 });
+      const bodyGeo = new THREE.BoxGeometry(0.65, 0.85, 0.42);
+      const bMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bMesh.position.y = 1.35;
+      bMesh.castShadow = true;
+      charGroup.add(bMesh);
 
-    // White Shirt Collar & Silk Tie
-    const shirtMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.25, 0.35, 0.05),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
-    );
-    shirtMesh.position.set(0, 0.25, 0.21);
-    bodyMesh.add(shirtMesh);
+      const shirtMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, 0.35, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+      );
+      shirtMesh.position.set(0, 0.25, 0.21);
+      bMesh.add(shirtMesh);
 
-    const tieMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.45, 0.06),
-      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.4 })
-    );
-    tieMesh.position.set(0, 0.1, 0.22);
-    bodyMesh.add(tieMesh);
+      const tieMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.45, 0.06),
+        new THREE.MeshStandardMaterial({ color: isLocal ? 0xd97706 : 0x0284c7, roughness: 0.3, metalness: 0.4 })
+      );
+      tieMesh.position.set(0, 0.1, 0.22);
+      bMesh.add(tieMesh);
 
-    // Head
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c8a3, roughness: 0.7 });
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), skinMat);
-    headMesh.position.set(0, 2.05, 0);
-    headMesh.castShadow = true;
-    characterGroup.add(headMesh);
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c8a3, roughness: 0.7 });
+      const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), skinMat);
+      headMesh.position.set(0, 2.05, 0);
+      headMesh.castShadow = true;
+      charGroup.add(headMesh);
 
-    // Stylish Hair / Fedora Hat
-    const hairMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      new THREE.MeshStandardMaterial({ color: 0x1f140e, roughness: 0.8 })
-    );
-    hairMesh.position.set(0, 2.12, 0);
-    characterGroup.add(hairMesh);
+      const hairMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        new THREE.MeshStandardMaterial({ color: 0x1f140e, roughness: 0.8 })
+      );
+      hairMesh.position.set(0, 2.12, 0);
+      charGroup.add(hairMesh);
 
-    // Aviator / VIP Sunglasses
-    const glassesMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.36, 0.1, 0.14),
-      new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
-    );
-    glassesMesh.position.set(0, 2.06, 0.24);
-    characterGroup.add(glassesMesh);
+      const glassesMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, 0.1, 0.14),
+        new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 })
+      );
+      glassesMesh.position.set(0, 2.06, 0.24);
+      charGroup.add(glassesMesh);
 
-    // Arms
-    const armGeo = new THREE.BoxGeometry(0.18, 0.7, 0.18);
-    const handGeo = new THREE.SphereGeometry(0.1, 10, 10);
+      const armGeo = new THREE.BoxGeometry(0.18, 0.7, 0.18);
+      const handGeo = new THREE.SphereGeometry(0.1, 10, 10);
 
-    // Left Arm
-    const leftArmGroup = new THREE.Group();
-    leftArmGroup.position.set(-0.44, 1.7, 0);
-    const leftArmMesh = new THREE.Mesh(armGeo, bodyMat);
-    leftArmMesh.position.y = -0.35;
-    leftArmMesh.castShadow = true;
-    leftArmGroup.add(leftArmMesh);
-    const leftHand = new THREE.Mesh(handGeo, skinMat);
-    leftHand.position.y = -0.72;
-    leftArmGroup.add(leftHand);
-    characterGroup.add(leftArmGroup);
-    leftArmRef.current = leftArmGroup;
+      const lArm = new THREE.Group();
+      lArm.position.set(-0.44, 1.7, 0);
+      const lArmMesh = new THREE.Mesh(armGeo, bodyMat);
+      lArmMesh.position.y = -0.35;
+      lArmMesh.castShadow = true;
+      lArm.add(lArmMesh);
+      const lHand = new THREE.Mesh(handGeo, skinMat);
+      lHand.position.y = -0.72;
+      lArm.add(lHand);
+      charGroup.add(lArm);
 
-    // Right Arm
-    const rightArmGroup = new THREE.Group();
-    rightArmGroup.position.set(0.44, 1.7, 0);
-    const rightArmMesh = new THREE.Mesh(armGeo, bodyMat);
-    rightArmMesh.position.y = -0.35;
-    rightArmMesh.castShadow = true;
-    rightArmGroup.add(rightArmMesh);
-    const rightHand = new THREE.Mesh(handGeo, skinMat);
-    rightHand.position.y = -0.72;
-    rightArmGroup.add(rightHand);
-    characterGroup.add(rightArmGroup);
-    rightArmRef.current = rightArmGroup;
+      const rArm = new THREE.Group();
+      rArm.position.set(0.44, 1.7, 0);
+      const rArmMesh = new THREE.Mesh(armGeo, bodyMat);
+      rArmMesh.position.y = -0.35;
+      rArmMesh.castShadow = true;
+      rArm.add(rArmMesh);
+      const rHand = new THREE.Mesh(handGeo, skinMat);
+      rHand.position.y = -0.72;
+      rArm.add(rHand);
+      charGroup.add(rArm);
 
-    // Legs
-    const legGeo = new THREE.BoxGeometry(0.22, 0.85, 0.22);
-    const shoeGeo = new THREE.BoxGeometry(0.24, 0.16, 0.38);
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.7 });
-    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.2, metalness: 0.5 });
+      const legGeo = new THREE.BoxGeometry(0.22, 0.85, 0.22);
+      const shoeGeo = new THREE.BoxGeometry(0.24, 0.16, 0.38);
+      const pantsMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.7 });
+      const shoeMat = new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.2, metalness: 0.5 });
 
-    // Left Leg
-    const leftLegGroup = new THREE.Group();
-    leftLegGroup.position.set(-0.18, 0.9, 0);
-    const leftLegMesh = new THREE.Mesh(legGeo, pantsMat);
-    leftLegMesh.position.y = -0.42;
-    leftLegMesh.castShadow = true;
-    leftLegGroup.add(leftLegMesh);
-    const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-    leftShoe.position.set(0, -0.86, 0.06);
-    leftShoe.castShadow = true;
-    leftLegGroup.add(leftShoe);
-    characterGroup.add(leftLegGroup);
-    leftLegRef.current = leftLegGroup;
+      const lLeg = new THREE.Group();
+      lLeg.position.set(-0.18, 0.9, 0);
+      const lLegMesh = new THREE.Mesh(legGeo, pantsMat);
+      lLegMesh.position.y = -0.42;
+      lLegMesh.castShadow = true;
+      lLeg.add(lLegMesh);
+      const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+      lShoe.position.set(0, -0.86, 0.06);
+      lShoe.castShadow = true;
+      lLeg.add(lShoe);
+      charGroup.add(lLeg);
 
-    // Right Leg
-    const rightLegGroup = new THREE.Group();
-    rightLegGroup.position.set(0.18, 0.9, 0);
-    const rightLegMesh = new THREE.Mesh(legGeo, pantsMat);
-    rightLegMesh.position.y = -0.42;
-    rightLegMesh.castShadow = true;
-    rightLegGroup.add(rightLegMesh);
-    const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-    rightShoe.position.set(0, -0.86, 0.06);
-    rightShoe.castShadow = true;
-    rightLegGroup.add(rightShoe);
-    characterGroup.add(rightLegGroup);
-    rightLegRef.current = rightLegGroup;
+      const rLeg = new THREE.Group();
+      rLeg.position.set(0.18, 0.9, 0);
+      const rLegMesh = new THREE.Mesh(legGeo, pantsMat);
+      rLegMesh.position.y = -0.42;
+      rLegMesh.castShadow = true;
+      rLeg.add(rLegMesh);
+      const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
+      rShoe.position.set(0, -0.86, 0.06);
+      rShoe.castShadow = true;
+      rLeg.add(rShoe);
+      charGroup.add(rLeg);
 
-    // 3D Nametag Billboard above Character Head
-    const nametagTexture = updateNametagCanvas(playerName);
-    if (nametagTexture) {
-      const nametagMat = new THREE.SpriteMaterial({ map: nametagTexture, transparent: true });
+      const nametagTexture = updateNametagCanvas(name, isLocal);
+      const nametagMat = new THREE.SpriteMaterial({ map: nametagTexture || undefined, transparent: true });
       const nametagSprite = new THREE.Sprite(nametagMat);
       nametagSprite.scale.set(2.4, 0.8, 1.0);
       nametagSprite.position.set(0, 2.7, 0);
-      characterGroup.add(nametagSprite);
-      nametagSpriteRef.current = nametagSprite;
-    }
+      charGroup.add(nametagSprite);
 
-    scene.add(characterGroup);
+      return {
+        group: charGroup,
+        ring,
+        bodyMesh: bMesh,
+        leftArm: lArm,
+        rightArm: rArm,
+        leftLeg: lLeg,
+        rightLeg: rLeg,
+        nametagSprite
+      };
+    };
+
+    createAvatarRef.current = createAvatar;
+
+    // 8. 3D Character Avatar Setup (Local Player)
+    const localAvatar = createAvatar(playerName, suitColorIdx, true);
+    localAvatar.group.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
+    characterGroupRef.current = localAvatar.group;
+    bodyMeshRef.current = localAvatar.bodyMesh;
+    playerRingRef.current = localAvatar.ring;
+    leftArmRef.current = localAvatar.leftArm;
+    rightArmRef.current = localAvatar.rightArm;
+    leftLegRef.current = localAvatar.leftLeg;
+    rightLegRef.current = localAvatar.rightLeg;
+    nametagSpriteRef.current = localAvatar.nametagSprite;
+
+    scene.add(localAvatar.group);
 
     // Initial position if initialTableId provided
     if (initialTableId) {
@@ -1038,7 +1196,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           x: targetTable.position[0],
           z: targetTable.position[2] + 3.2
         };
-        characterGroup.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
+        localAvatar.group.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
       }
     }
 
@@ -1288,6 +1446,50 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         }
       }
 
+      // Update Remote Players' Transforms & Procedural Walk Animations
+      otherPlayersRef.current.forEach((remote) => {
+        // Smooth position lerp
+        remote.group.position.x += (remote.targetPos.x - remote.group.position.x) * 0.25;
+        remote.group.position.z += (remote.targetPos.z - remote.group.position.z) * 0.25;
+
+        // Smooth rotation lerp
+        let diff = remote.targetRotY - remote.group.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        remote.group.rotation.y += diff * 0.25;
+
+        // Remote limb animations
+        if (remote.isMoving) {
+          remote.walkCycle += delta * 12;
+          const cycle = remote.walkCycle;
+          remote.leftLeg.rotation.x = Math.sin(cycle) * 0.65;
+          remote.rightLeg.rotation.x = -Math.sin(cycle) * 0.65;
+          remote.leftArm.rotation.x = -Math.sin(cycle) * 0.55;
+          remote.rightArm.rotation.x = Math.sin(cycle) * 0.55;
+          remote.bodyMesh.position.y = 1.35 + Math.abs(Math.sin(cycle)) * 0.06;
+        } else {
+          remote.leftLeg.rotation.x *= 0.85;
+          remote.rightLeg.rotation.x *= 0.85;
+          remote.leftArm.rotation.x *= 0.85;
+          remote.rightArm.rotation.x *= 0.85;
+          remote.bodyMesh.position.y += (1.35 - remote.bodyMesh.position.y) * 0.15;
+        }
+      });
+
+      // Emit local player position to server (throttled ~20 times/sec)
+      if (socket) {
+        lastMoveEmitTimeRef.current += delta;
+        if (lastMoveEmitTimeRef.current > 0.05 || isMoving !== lastWasMovingRef.current) {
+          lastMoveEmitTimeRef.current = 0;
+          lastWasMovingRef.current = isMoving;
+          socket.emit('lobby:move', {
+            position: [playerPosRef.current.x, 0, playerPosRef.current.z],
+            rotationY: playerHeadingRef.current,
+            isMoving
+          });
+        }
+      }
+
       // Proximity Detection to Poker Tables
       let closest: TableConfig | null = null;
       let minDistance = 5.0;
@@ -1350,6 +1552,14 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         cancelAnimationFrame(animFrameIdRef.current);
       }
 
+      if (socket) {
+        socket.emit('lobby:leave');
+      }
+      otherPlayersRef.current.forEach(remote => {
+        if (sceneRef.current) sceneRef.current.remove(remote.group);
+      });
+      otherPlayersRef.current.clear();
+
       if (container && renderer.domElement) {
         container.removeChild(renderer.domElement);
       }
@@ -1365,18 +1575,24 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       const armMat = (leftArmRef.current.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
       if (armMat) armMat.color.setHex(col);
     }
-  }, [suitColorIdx]);
+    if (socket) {
+      socket.emit('lobby:update-outfit', { suitColorIdx, name: playerName });
+    }
+  }, [suitColorIdx, playerName, socket]);
 
   // Update Nametag Sprite when player name changes
   useEffect(() => {
     if (nametagSpriteRef.current) {
-      const tex = updateNametagCanvas(playerName);
+      const tex = updateNametagCanvas(playerName, true);
       if (tex) {
         nametagSpriteRef.current.material.map = tex;
         nametagSpriteRef.current.material.needsUpdate = true;
       }
     }
-  }, [playerName]);
+    if (socket) {
+      socket.emit('lobby:update-outfit', { suitColorIdx, name: playerName });
+    }
+  }, [playerName, suitColorIdx, socket]);
 
   // Update Billboards when roomData updates
   useEffect(() => {
@@ -1394,6 +1610,9 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   // Handle entering a table with Cinematic Transition
   const handleEnterTable = (table: TableConfig) => {
     if (isTransitioningRef.current) return;
+    if (socket) {
+      socket.emit('lobby:leave');
+    }
     isTransitioningRef.current = true;
     setIsTransitioning(true);
     soundEffects.playEnterTable();
@@ -1552,8 +1771,15 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             <div style={{ fontSize: '15px', fontWeight: 900, color: '#f8fafc', letterSpacing: '0.04em' }}>
               VIP CASINO LOUNGE 3D
             </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
-              Texas Hold'em Royale • Ruang Utama
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
+                Texas Hold'em Royale • Ruang Utama
+              </span>
+              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#64748b' }} />
+              <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', display: 'inline-block' }} />
+                {onlineLobbyCount} di Lounge
+              </span>
             </div>
           </div>
         </div>

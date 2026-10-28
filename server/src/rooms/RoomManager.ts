@@ -13,11 +13,21 @@ export interface RoomInfo {
   startingChips: number;
 }
 
+export interface LobbyPlayer {
+  id: string;
+  name: string;
+  suitColorIdx: number;
+  position: [number, number, number];
+  rotationY: number;
+  isMoving: boolean;
+}
+
 export class RoomManager {
   private io: Server;
   private tables: Map<string, PokerTable> = new Map();
   private socketToRoom: Map<string, string> = new Map();
   private voiceUsersInRoom: Map<string, Map<string, { socketId: string; playerName: string }>> = new Map();
+  private lobbyPlayers: Map<string, LobbyPlayer> = new Map();
 
   constructor(io: Server) {
     this.io = io;
@@ -69,8 +79,70 @@ export class RoomManager {
   }
 
   public handleSocketConnection(socket: Socket): void {
+    // === 0. 3D Casino Lounge Presence & Movement ===
+    socket.on('lobby:join', ({ name, suitColorIdx, position }: { name: string; suitColorIdx: number; position?: [number, number, number] }) => {
+      socket.join('casino-lobby');
+      const player: LobbyPlayer = {
+        id: socket.id,
+        name: (name || 'Pemain').trim(),
+        suitColorIdx: typeof suitColorIdx === 'number' ? suitColorIdx : 0,
+        position: position || [0, 0, 1],
+        rotationY: 0,
+        isMoving: false
+      };
+      this.lobbyPlayers.set(socket.id, player);
+
+      // Send all existing lobby players to this client
+      const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
+      socket.emit('lobby:all-players', otherPlayers);
+
+      // Broadcast to everyone else in the lounge
+      socket.to('casino-lobby').emit('lobby:player-joined', player);
+    });
+
+    socket.on('lobby:move', ({ position, rotationY, isMoving }: { position: [number, number, number]; rotationY: number; isMoving: boolean }) => {
+      const player = this.lobbyPlayers.get(socket.id);
+      if (player) {
+        player.position = position;
+        player.rotationY = rotationY;
+        player.isMoving = isMoving;
+        socket.to('casino-lobby').emit('lobby:player-moved', {
+          id: socket.id,
+          position,
+          rotationY,
+          isMoving
+        });
+      }
+    });
+
+    socket.on('lobby:update-outfit', ({ suitColorIdx, name }: { suitColorIdx: number; name?: string }) => {
+      const player = this.lobbyPlayers.get(socket.id);
+      if (player) {
+        if (typeof suitColorIdx === 'number') player.suitColorIdx = suitColorIdx;
+        if (name) player.name = name.trim();
+        socket.to('casino-lobby').emit('lobby:player-updated', {
+          id: socket.id,
+          suitColorIdx: player.suitColorIdx,
+          name: player.name
+        });
+      }
+    });
+
+    socket.on('lobby:leave', () => {
+      if (this.lobbyPlayers.has(socket.id)) {
+        this.lobbyPlayers.delete(socket.id);
+        socket.leave('casino-lobby');
+        socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id });
+      }
+    });
+
     // 1. Join room
     socket.on('joinRoom', ({ roomId, playerName }: { roomId: string; playerName: string }) => {
+      if (this.lobbyPlayers.has(socket.id)) {
+        this.lobbyPlayers.delete(socket.id);
+        socket.leave('casino-lobby');
+        socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id });
+      }
       const cleanId = (roomId || 'meja-1').trim().toLowerCase();
       const currentRoom = this.socketToRoom.get(socket.id);
       if (currentRoom && currentRoom !== cleanId) {
@@ -287,6 +359,12 @@ export class RoomManager {
           roomVoice.delete(socket.id);
           socket.to(rId).emit('voice:user-left', { socketId: socket.id });
         }
+      }
+
+      // Clean up 3D Lounge presence
+      if (this.lobbyPlayers.has(socket.id)) {
+        this.lobbyPlayers.delete(socket.id);
+        socket.to('casino-lobby').emit('lobby:player-left', { id: socket.id });
       }
 
       const roomId = this.socketToRoom.get(socket.id);

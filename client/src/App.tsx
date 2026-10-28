@@ -368,6 +368,7 @@ export const App: React.FC = () => {
     return (
       <div className="flex flex-col min-h-screen relative overflow-hidden">
         <Lobby3D
+          socket={socket}
           playerName={playerName}
           onUpdatePlayerName={handleUpdatePlayerName}
           onSelectTable={(selectedRoomId) => {
