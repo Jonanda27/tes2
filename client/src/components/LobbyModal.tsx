@@ -202,34 +202,7 @@ export const LobbyModal: React.FC<LobbyModalProps> = ({
               style={{ gridColumn: 'span 2', justifyContent: 'center', padding: '10px' }}
             >
               <RefreshCw size={15} />
-              <span>Isi Ulang Chip (Rp 100.000)</span>
-            </button>
-          )}
-
-          {isSeated && (
-            <button
-              onClick={() => {
-                onLeaveSeat();
-                onClose();
-              }}
-              style={{
-                gridColumn: 'span 2',
-                padding: '9px',
-                borderRadius: '12px',
-                background: 'rgba(244,63,94,0.15)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fca5a5',
-                fontSize: '12px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              <LogOut size={15} />
-              <span>Berdiri dari Kursi (Menjadi Penonton)</span>
+              <span>Ambil Modal dari Dompet</span>
             </button>
           )}
 

@@ -35,6 +35,7 @@ export interface PlayerPublic {
 
 export interface PlayerPrivate extends PlayerPublic {
   cards: Card[]; // Private hole cards known only to this player
+  walletId?: string;
 }
 
 export interface HandEvaluation {

@@ -32,22 +32,36 @@ export class PokerTable {
     waitingCountdown = null;
     winners = [];
     handNumber = 0;
-    onStateChange;
+    onStateChangeCallback;
     onChatMessage;
+    onWalletSync;
+    onPlayerLeaveSeat;
     constructor(options) {
         this.roomId = options.roomId;
         this.roomName = options.roomName;
         this.maxSeats = options.maxSeats ?? 8;
         this.smallBlind = options.smallBlind ?? 1000;
         this.bigBlind = options.bigBlind ?? 2000;
-        this.startingChips = options.startingChips ?? 100000;
+        this.startingChips = options.startingChips ?? 1000000;
         this.turnDuration = options.turnDuration ?? 25;
-        this.onStateChange = options.onStateChange;
+        this.onStateChangeCallback = options.onStateChange;
         this.onChatMessage = options.onChatMessage;
+        this.onWalletSync = options.onWalletSync;
+        this.onPlayerLeaveSeat = options.onPlayerLeaveSeat;
         this.seats = Array(this.maxSeats).fill(null);
         this.deck = new Deck();
     }
-    sit(playerId, name, seatIndex, isBot = false) {
+    onStateChange() {
+        if (this.onWalletSync) {
+            for (const p of this.seats) {
+                if (p) {
+                    this.onWalletSync(p, false);
+                }
+            }
+        }
+        this.onStateChangeCallback();
+    }
+    sit(playerId, name, seatIndex, isBot = false, initialChips, walletId) {
         if (seatIndex < 0 || seatIndex >= this.maxSeats) {
             return { success: false, error: 'Kursi tidak valid' };
         }
@@ -60,11 +74,15 @@ export class PokerTable {
             return { success: false, error: 'Anda sudah duduk di kursi lain' };
         }
         const isMidGame = this.stage !== 'WAITING';
+        const seatChips = typeof initialChips === 'number' && !Number.isNaN(initialChips) && initialChips > 0
+            ? initialChips
+            : this.startingChips;
         this.seats[seatIndex] = {
             id: playerId,
+            walletId,
             name,
             seatIndex,
-            chips: this.startingChips,
+            chips: seatChips,
             currentBet: 0,
             totalHandBet: 0,
             folded: isMidGame,
@@ -174,14 +192,21 @@ export class PokerTable {
         }
         this.waitingCountdown = null;
     }
-    rebindPlayerSocket(playerName, newSocketId) {
+    rebindPlayerSocket(playerName, newSocketId, walletId) {
         const cleanName = playerName.trim().toLowerCase();
-        const player = this.seats.find(p => p !== null && !p.isBot && p.name.trim().toLowerCase() === cleanName);
+        const player = this.seats.find(p => p !== null &&
+            !p.isBot &&
+            ((walletId && p.walletId === walletId) || p.name.trim().toLowerCase() === cleanName));
         if (player) {
             player.id = newSocketId;
+            if (walletId)
+                player.walletId = walletId;
             return true;
         }
         return false;
+    }
+    getSeatedPlayer(playerId) {
+        return this.seats.find((p) => p !== null && p.id === playerId);
     }
     leave(playerId) {
         const seatIndex = this.seats.findIndex(p => p?.id === playerId);
@@ -197,6 +222,10 @@ export class PokerTable {
             }
         }
         this.seats[seatIndex] = null;
+        // Cash out remaining seat chips back to wallet AFTER removing from seat
+        if (this.onPlayerLeaveSeat) {
+            this.onPlayerLeaveSeat(player);
+        }
         if (this.getEligiblePlayerCount() < 2 && this.stage !== 'WAITING') {
             this.resetToWaiting('Pemain tersisa kurang dari 2, menunggu pemain lain...');
         }
@@ -207,15 +236,11 @@ export class PokerTable {
             this.onStateChange();
         }
     }
-    rebuy(playerId) {
+    rebuy(playerId, customAmount) {
         const player = this.seats.find(p => p?.id === playerId);
         if (!player)
             return { success: false, error: 'Pemain tidak ditemukan' };
-        // 1. Chip must be completely 0
-        if (player.chips > 0) {
-            return { success: false, error: 'Chip Anda belum habis. Isi ulang hanya bisa saat chip benar-benar 0!' };
-        }
-        // 2. Cannot rebuy while actively participating in an ongoing hand
+        // Cannot rebuy/top-up while actively participating in an ongoing hand
         if (this.stage !== 'WAITING') {
             const isCurrentlyInHand = (player.cards && player.cards.length > 0) ||
                 player.isAllIn ||
@@ -224,19 +249,22 @@ export class PokerTable {
             if (isCurrentlyInHand) {
                 return {
                     success: false,
-                    error: 'Tidak bisa isi ulang saat sedang bermain! Tunggu hingga ronde ini selesai.'
+                    error: 'Tidak bisa tambah modal saat sedang bermain! Tunggu hingga ronde ini selesai.'
                 };
             }
         }
-        player.chips = this.startingChips;
+        const rebuyAmount = typeof customAmount === 'number' && !Number.isNaN(customAmount) && customAmount > 0
+            ? Math.floor(customAmount)
+            : 200000;
+        player.chips += rebuyAmount;
         player.isAllIn = false;
         player.isSittingOut = false;
-        this.broadcastSystemMessage(`${player.name} mengisi ulang chip (Rp ${this.startingChips.toLocaleString('id-ID')})`);
+        this.broadcastSystemMessage(`${player.name} menambah modal ke meja +Rp ${rebuyAmount.toLocaleString('id-ID')} (Total di kursi: Rp ${player.chips.toLocaleString('id-ID')})`);
         if (this.stage === 'WAITING') {
             this.checkReadyAndStart();
         }
         this.onStateChange();
-        return { success: true };
+        return { success: true, addedAmount: rebuyAmount };
     }
     tipPlayer(senderId, targetSeatIndex, amount) {
         const validAmounts = [500, 1000, 2000];
@@ -291,7 +319,7 @@ export class PokerTable {
             }
         };
     }
-    addBot() {
+    addBot(buyInAmount) {
         const emptySeat = this.seats.findIndex(p => p === null);
         if (emptySeat === -1) {
             return { success: false, error: 'Meja sudah penuh' };
@@ -301,7 +329,12 @@ export class PokerTable {
         const availableNames = botNames.filter(n => !usedNames.has(n));
         const chosenName = availableNames[0] ?? `Bot #${Math.floor(Math.random() * 1000)}`;
         const botId = `bot_${Date.now()}_${emptySeat}`;
-        return this.sit(botId, chosenName, emptySeat, true);
+        const botWalletId = `bot_${chosenName.toLowerCase().replace(/\s+/g, '_')}`;
+        const botChips = buyInAmount || Math.min(1000000, Math.max(200000, this.bigBlind * 100));
+        const res = this.sit(botId, chosenName, emptySeat, true, botChips, botWalletId);
+        if (!res.success)
+            return res;
+        return { success: true, botName: chosenName, botWalletId, botChips };
     }
     kickBot(seatIndex) {
         const p = this.seats[seatIndex];
@@ -690,6 +723,7 @@ export class PokerTable {
             const splitAmount = Math.floor(pot.amount / winnersForPot.length);
             for (const w of winnersForPot) {
                 w.player.chips += splitAmount;
+                this.onWalletSync?.(w.player, true);
                 winResults.push({
                     seatIndex: w.player.seatIndex,
                     playerId: w.player.id,
@@ -709,11 +743,11 @@ export class PokerTable {
             for (const p of this.seats) {
                 if (p && p.chips <= 0) {
                     if (p.isBot) {
-                        p.chips = this.startingChips; // Bots auto-reload
+                        p.chips = Math.max(1000000, this.startingChips); // Bots auto-reload
                     }
                     else {
                         p.isSittingOut = true;
-                        this.broadcastSystemMessage(`${p.name} kehabisan chip. Silakan klik Rebuy Rp 100.000.`);
+                        this.broadcastSystemMessage(`${p.name} kehabisan chip. Silakan klik Rebuy Rp 1.000.000.`);
                     }
                 }
             }
@@ -753,6 +787,7 @@ export class PokerTable {
             }
         }
         winner.chips += this.pot;
+        this.onWalletSync?.(winner, true);
         this.winners = [
             {
                 seatIndex: winner.seatIndex,
@@ -770,11 +805,11 @@ export class PokerTable {
             for (const p of this.seats) {
                 if (p && p.chips <= 0) {
                     if (p.isBot) {
-                        p.chips = this.startingChips;
+                        p.chips = Math.max(1000000, this.startingChips);
                     }
                     else {
                         p.isSittingOut = true;
-                        this.broadcastSystemMessage(`${p.name} kehabisan chip. Silakan klik Rebuy Rp 100.000.`);
+                        this.broadcastSystemMessage(`${p.name} kehabisan chip. Silakan klik Rebuy Rp 1.000.000.`);
                     }
                 }
             }

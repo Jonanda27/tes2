@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, PlayerPublic, TableStage } from '../types.js';
 import { PlayingCard } from './PlayingCard.js';
 import { ChipStack } from './ChipStack.js';
 import { formatRupiah } from '../utils/formatters.js';
-import { Bot, User, X, Mic } from 'lucide-react';
+import { LiveHandStrength, isCardInList } from '../utils/handStrength.js';
+import { Bot, User, X } from 'lucide-react';
 
 interface PlayerSeatProps {
   seatIndex: number;
@@ -20,6 +21,7 @@ interface PlayerSeatProps {
   isBigBlind: boolean;
   isWinner: boolean;
   winningHandName?: string;
+  liveHandStrength?: LiveHandStrength | null;
   tipEffect?: { type: 'sent' | 'received'; amount: number; phrase?: string } | null;
   isSpeaking?: boolean;
   onSit: (seatIndex: number) => void;
@@ -43,6 +45,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   isBigBlind,
   isWinner,
   winningHandName,
+  liveHandStrength,
   tipEffect,
   isSpeaking,
   onSit,
@@ -51,6 +54,34 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   stylePosition
 }) => {
   const [showTipMenu, setShowTipMenu] = useState(false);
+  const tipWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close tip menu when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!showTipMenu) return;
+
+    const handlePointerDownOutside = (e: MouseEvent | TouchEvent) => {
+      if (tipWrapperRef.current && !tipWrapperRef.current.contains(e.target as Node)) {
+        setShowTipMenu(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowTipMenu(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDownOutside);
+    window.addEventListener('touchstart', handlePointerDownOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDownOutside);
+      window.removeEventListener('touchstart', handlePointerDownOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showTipMenu]);
+
   // Empty Seat
   if (!player) {
     return (
@@ -83,61 +114,76 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
 
   const timerPercent = turnDuration > 0 ? (turnTimeRemaining / turnDuration) * 100 : 0;
 
+  // Place hole cards ABOVE the player's name capsule as requested
+  const getCardsPositionClass = () => {
+    return 'cards-top';
+  };
+
+  // Determine smart popover direction so it NEVER overlaps the hole cards above the seat
+  const getTipPopoverDirectionClass = () => {
+    if (seatIndex === 1 || seatIndex === 2 || seatIndex === 3 || seatIndex === 4) return 'popover-left';
+    if (seatIndex === 5 || seatIndex === 6 || seatIndex === 7) return 'popover-right';
+    return 'popover-bottom';
+  };
+
+  // Place bet chip stack towards the inside of the table without ever touching the hole cards above the capsule
+  const getBetPositionClass = () => {
+    if (seatIndex === 2 || seatIndex === 3) return 'bet-left';
+    if (seatIndex === 4 || seatIndex === 5 || seatIndex === 6) return 'bet-right';
+    return 'bet-bottom';
+  };
+
   return (
     <div
-      className="seat-anchor"
+      className={`seat-anchor ${showTipMenu ? 'tip-open' : ''} ${tipEffect ? 'has-tip-effect' : ''}`}
       style={{ top: stylePosition.top, left: stylePosition.left }}
     >
-      {/* Cards container with dealing animations */}
-      {displayCards.length > 0 && (
-        <div className={`seat-cards-row ${player.folded ? 'folded-cards' : ''}`}>
-          {displayCards.map((c, i) => (
-            <div
-              key={i}
-              className={i === 0 ? 'animate-hole-left' : 'animate-hole-right'}
-              style={{
-                animationDelay: `${i * 120}ms`
-              }}
-            >
-              <PlayingCard
-                card={c}
-                faceDown={c === null}
-                size={isMe ? 'md' : 'sm'}
-                isHighlighted={isWinner}
-              />
+      {/* Wrapper around Player Capsule so capsule stays 100% locked at seat coordinate and never shifts down when cards/bets appear */}
+      <div className="player-capsule-wrapper">
+        {/* Cards container positioned above capsule */}
+        {displayCards.length > 0 && (
+          <div className={`seat-cards-row ${getCardsPositionClass()} ${player.folded ? 'folded-cards' : ''}`}>
+            {displayCards.map((c, i) => {
+              const isComboMatch =
+                isMe &&
+                !player.folded &&
+                stage !== 'SHOWDOWN' &&
+                Boolean(liveHandStrength && liveHandStrength.category >= 1 && isCardInList(c, liveHandStrength.matchingCards));
+
+              return (
+                <div
+                  key={i}
+                  className={i === 0 ? 'animate-hole-left' : 'animate-hole-right'}
+                  style={{
+                    animationDelay: `${i * 120}ms`
+                  }}
+                >
+                  <PlayingCard
+                    card={c}
+                    faceDown={c === null}
+                    size={isMe ? 'md' : 'sm'}
+                    isHighlighted={isWinner || isComboMatch}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Floating Tip Bubble on Seat */}
+        {tipEffect && (
+          <div className={`seat-tip-floating ${tipEffect.type}`}>
+            <div className="seat-tip-main">
+              <span className="tip-icon">🪙</span>
+              <span className="tip-amount">
+                {tipEffect.type === 'received'
+                  ? `+Rp ${tipEffect.amount.toLocaleString('id-ID')}`
+                  : `-Rp ${tipEffect.amount.toLocaleString('id-ID')}`}
+              </span>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Floating Tip Bubble on Seat */}
-      {tipEffect && (
-        <div className={`seat-tip-floating ${tipEffect.type}`}>
-          <span className="tip-amount">
-            {tipEffect.type === 'received'
-              ? `+Rp ${tipEffect.amount.toLocaleString('id-ID')}`
-              : `-Rp ${tipEffect.amount.toLocaleString('id-ID')}`}
-          </span>
-          <span className="tip-icon">🪙</span>
-          {tipEffect.phrase && tipEffect.type === 'received' && (
-            <div className="tip-phrase">{tipEffect.phrase}</div>
-          )}
-        </div>
-      )}
-
-      {/* Player Capsule */}
-      <div
-        className={`player-capsule ${isMe ? 'is-me' : ''} ${isActiveTurn ? 'active-turn' : ''} ${
-          isWinner ? 'is-winner' : ''
-        } ${player.folded && !player.waitingNextHand ? 'folded' : ''} ${player.waitingNextHand ? 'waiting-next' : ''}`}
-      >
-        {/* Turn Progress Bar */}
-        {isActiveTurn && (
-          <div className="turn-bar">
-            <div
-              className={`turn-progress ${turnTimeRemaining <= 5 ? 'urgent' : ''}`}
-              style={{ width: `${timerPercent}%` }}
-            />
+            {tipEffect.phrase && tipEffect.type === 'received' && (
+              <div className="tip-phrase">"{tipEffect.phrase}"</div>
+            )}
           </div>
         )}
 
@@ -159,25 +205,42 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
           </button>
         )}
 
-        {/* Tip Opponent Button (Lempar Receh) */}
+        {/* Tip Opponent Button & Popover (Lempar Receh) - Placed cleanly outside capsule */}
         {!isMe && isMeSeated && (
-          <div className="tip-trigger-wrapper">
+          <div className="tip-trigger-wrapper" ref={tipWrapperRef}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowTipMenu(!showTipMenu);
+                setShowTipMenu(prev => !prev);
               }}
-              className="btn-tip-opponent"
+              className={`btn-tip-opponent ${showTipMenu ? 'active' : ''}`}
               title={`Lempar receh ke ${player.name}`}
             >
-              🪙
+              <span className="tip-coin-emoji">🪙</span>
+              <span className="tip-btn-label">Tip</span>
             </button>
 
             {showTipMenu && (
-              <div className="tip-popover" onClick={(e) => e.stopPropagation()}>
-                <div className="tip-popover-title">Lempar Receh 🪙</div>
+              <div
+                className={`tip-popover ${getTipPopoverDirectionClass()}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="tip-popover-header">
+                  <span className="tip-popover-title">
+                    🪙 Tip ke <strong>{player.name}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    className="tip-popover-close"
+                    onClick={() => setShowTipMenu(false)}
+                    title="Tutup"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <div className="tip-popover-buttons">
                   <button
+                    type="button"
                     onClick={() => {
                       onTip?.(seatIndex, 500);
                       setShowTipMenu(false);
@@ -185,9 +248,11 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
                     className="btn-tip-chip chip-500"
                     title="Beri Rp 500"
                   >
-                    500
+                    <span className="chip-dot dot-500" />
+                    <span>Rp 500</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       onTip?.(seatIndex, 1000);
                       setShowTipMenu(false);
@@ -195,9 +260,11 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
                     className="btn-tip-chip chip-1k"
                     title="Beri Rp 1.000"
                   >
-                    1k
+                    <span className="chip-dot dot-1k" />
+                    <span>Rp 1K</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       onTip?.(seatIndex, 2000);
                       setShowTipMenu(false);
@@ -205,7 +272,8 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
                     className="btn-tip-chip chip-2k"
                     title="Beri Rp 2.000"
                   >
-                    2k
+                    <span className="chip-dot dot-2k" />
+                    <span>Rp 2K</span>
                   </button>
                 </div>
               </div>
@@ -213,122 +281,139 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
           </div>
         )}
 
-        {/* Avatar & Player Name */}
-        <div className="player-name-row">
-          <div
-            className={`player-avatar ${isSpeaking ? 'speaking-active' : ''}`}
-            style={{
-              backgroundColor: player.isBot
-                ? '#9333ea'
-                : isMe
-                ? '#10b981'
-                : '#334155',
-              color: '#fff',
-              position: 'relative'
-            }}
-          >
-            {player.isBot ? <Bot size={11} /> : <User size={11} />}
-            {isSpeaking && (
-              <span
-                style={{
-                  position: 'absolute',
-                  bottom: '-2px',
-                  right: '-3px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#10b981',
-                  border: '1.5px solid #0f172a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '7px'
-                }}
-                title="Sedang Berbicara"
-              >
-                🎙️
-              </span>
-            )}
+        {/* Player Capsule */}
+        <div
+          className={`player-capsule ${isMe ? 'is-me' : ''} ${isActiveTurn ? 'active-turn' : ''} ${
+            isWinner ? 'is-winner' : ''
+          } ${player.folded && !player.waitingNextHand ? 'folded' : ''} ${player.waitingNextHand ? 'waiting-next' : ''}`}
+        >
+          {/* Turn Progress Bar */}
+          {isActiveTurn && (
+            <div className="turn-bar">
+              <div
+                className={`turn-progress ${turnTimeRemaining <= 5 ? 'urgent' : ''}`}
+                style={{ width: `${timerPercent}%` }}
+              />
+            </div>
+          )}
+
+          {/* Avatar & Player Name */}
+          <div className="player-name-row">
+            <div
+              className={`player-avatar ${isSpeaking ? 'speaking-active' : ''}`}
+              style={{
+                backgroundColor: player.isBot
+                  ? '#9333ea'
+                  : isMe
+                  ? '#10b981'
+                  : '#334155',
+                color: '#fff',
+                position: 'relative'
+              }}
+            >
+              {player.isBot ? <Bot size={11} /> : <User size={11} />}
+              {isSpeaking && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: '-2px',
+                    right: '-3px',
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    border: '1.5px solid #0f172a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '7px'
+                  }}
+                  title="Sedang Berbicara"
+                >
+                  🎙️
+                </span>
+              )}
+            </div>
+            <span className="player-name" style={{ color: isSpeaking ? '#34d399' : undefined }}>
+              {player.name} {isMe && '(Anda)'}
+            </span>
           </div>
-          <span className="player-name" style={{ color: isSpeaking ? '#34d399' : undefined }}>
-            {player.name} {isMe && '(Anda)'}
-          </span>
+
+          {/* Chip Balance */}
+          <div className="player-chips">{formatRupiah(player.chips)}</div>
+
+          {/* Ready Badge in WAITING stage or In-game Actions */}
+          {stage === 'WAITING' ? (
+            <span
+              className="action-badge"
+              style={{
+                backgroundColor: player.isReady ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.2)',
+                color: player.isReady ? '#34d399' : '#fbbf24',
+                border: `1px solid ${player.isReady ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.4)'}`
+              }}
+            >
+              {player.isReady ? '✅ READY' : '⏳ BELUM READY'}
+            </span>
+          ) : player.waitingNextHand ? (
+            <span
+              className="action-badge"
+              style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                color: '#fbbf24',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                fontSize: '8.5px',
+                padding: '2px 6px'
+              }}
+            >
+              ⏳ MENUNGGU
+            </span>
+          ) : player.folded ? (
+            <span className="action-badge fold">FOLDED</span>
+          ) : player.isAllIn ? (
+            <span className="action-badge allin">ALL-IN</span>
+          ) : player.lastAction ? (
+            <span className="action-badge">{player.lastAction}</span>
+          ) : null}
+
+          {/* Hand description (combination) display at Showdown or Folded */}
+          {player.handDescription && (stage === 'SHOWDOWN' || (player.folded && !player.waitingNextHand && !isMe)) && !isWinner && (
+            <div
+              style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                color: player.folded ? '#94a3b8' : '#cbd5e1',
+                marginTop: '3px',
+                textAlign: 'center',
+                lineHeight: 1.2
+              }}
+            >
+              {player.handDescription}
+            </div>
+          )}
+
+          {/* Winning Hand Display */}
+          {isWinner && winningHandName && (
+            <div
+              style={{
+                fontSize: '9px',
+                fontWeight: 900,
+                color: '#fef08a',
+                marginTop: '2px',
+                textAlign: 'center'
+              }}
+            >
+              🏆 {winningHandName}
+            </div>
+          )}
         </div>
 
-        {/* Chip Balance */}
-        <div className="player-chips">{formatRupiah(player.chips)}</div>
-
-        {/* Ready Badge in WAITING stage or In-game Actions */}
-        {stage === 'WAITING' ? (
-          <span
-            className="action-badge"
-            style={{
-              backgroundColor: player.isReady ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.2)',
-              color: player.isReady ? '#34d399' : '#fbbf24',
-              border: `1px solid ${player.isReady ? 'rgba(16, 185, 129, 0.5)' : 'rgba(245, 158, 11, 0.4)'}`
-            }}
-          >
-            {player.isReady ? '✅ READY' : '⏳ BELUM READY'}
-          </span>
-        ) : player.waitingNextHand ? (
-          <span
-            className="action-badge"
-            style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.2)',
-              color: '#fbbf24',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              fontSize: '8.5px',
-              padding: '2px 6px'
-            }}
-          >
-            ⏳ MENUNGGU
-          </span>
-        ) : player.folded ? (
-          <span className="action-badge fold">FOLDED</span>
-        ) : player.isAllIn ? (
-          <span className="action-badge allin">ALL-IN</span>
-        ) : player.lastAction ? (
-          <span className="action-badge">{player.lastAction}</span>
-        ) : null}
-
-        {/* Hand description (combination) display at Showdown or Folded */}
-        {player.handDescription && (stage === 'SHOWDOWN' || (player.folded && !player.waitingNextHand)) && !isWinner && (
-          <div
-            style={{
-              fontSize: '9px',
-              fontWeight: 700,
-              color: player.folded ? '#94a3b8' : '#cbd5e1',
-              marginTop: '3px',
-              textAlign: 'center',
-              lineHeight: 1.2
-            }}
-          >
-            {player.handDescription}
-          </div>
-        )}
-
-        {/* Winning Hand Display */}
-        {isWinner && winningHandName && (
-          <div
-            style={{
-              fontSize: '9px',
-              fontWeight: 900,
-              color: '#fef08a',
-              marginTop: '2px',
-              textAlign: 'center'
-            }}
-          >
-            🏆 {winningHandName}
+        {/* Floating Bet Stack positioned towards the felt */}
+        {player.currentBet > 0 && (
+          <div className={`seat-bet-row ${getBetPositionClass()}`}>
+            <ChipStack amount={player.currentBet} size="sm" />
           </div>
         )}
       </div>
-
-      {/* Floating Bet Stack */}
-      {player.currentBet > 0 && (
-        <div className="seat-bet-row">
-          <ChipStack amount={player.currentBet} size="sm" />
-        </div>
-      )}
     </div>
   );
 };

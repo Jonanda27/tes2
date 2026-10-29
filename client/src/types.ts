@@ -85,3 +85,14 @@ export interface RoomInfo {
   startingChips?: number;
 }
 
+export interface WalletRecord {
+  walletId: string;
+  name: string;
+  balance: number;
+  wins: number;
+  handsPlayed: number;
+  isBot?: boolean;
+  updatedAt: number;
+}
+
+

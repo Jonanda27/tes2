@@ -18,7 +18,7 @@ import {
   Tv
 } from 'lucide-react';
 import { soundEffects } from '../utils/soundEffects.js';
-import { RoomInfo } from '../types.js';
+import { RoomInfo, WalletRecord } from '../types.js';
 
 export interface TableConfig {
   id: string;
@@ -112,9 +112,79 @@ export const OUTFIT_COLORS = [
   { name: 'Ivory Gold', hex: '#f8fafc', colorVal: 0xf1f5f9, tag: 'VIP White' }
 ];
 
+export const CASHIER_BOOTH_POS: [number, number, number] = [0, 0, -9.0];
+
+export interface PythonQuizQuestion {
+  code: string;
+  question: string;
+  options: { label: 'A' | 'B' | 'C' | 'D'; value: number }[];
+  correctAnswer: number;
+}
+
+export function generatePythonAdditionQuiz(): PythonQuizQuestion {
+  const pattern = Math.floor(Math.random() * 4);
+  let code = '';
+  let correctAnswer = 0;
+
+  if (pattern === 0) {
+    const a = (Math.floor(Math.random() * 18) + 2) * 10;
+    const b = (Math.floor(Math.random() * 18) + 3) * 10;
+    correctAnswer = a + b;
+    code = `chip_awal = ${a}\nbonus = ${b}\ntotal = chip_awal + bonus\nprint(total)`;
+  } else if (pattern === 1) {
+    const a = (Math.floor(Math.random() * 9) + 1) * 10;
+    const b = (Math.floor(Math.random() * 9) + 2) * 10;
+    const c = (Math.floor(Math.random() * 9) + 1) * 10;
+    correctAnswer = a + b + c;
+    code = `a = ${a}\nb = ${b}\nc = ${c}\nhasil = a + b + c\nprint(hasil)`;
+  } else if (pattern === 2) {
+    const s = (Math.floor(Math.random() * 12) + 2) * 10;
+    const add1 = (Math.floor(Math.random() * 10) + 1) * 10;
+    const add2 = (Math.floor(Math.random() * 10) + 2) * 10;
+    correctAnswer = s + add1 + add2;
+    code = `saldo = ${s}\nsaldo += ${add1}\nsaldo += ${add2}\nprint(saldo)`;
+  } else {
+    const x = (Math.floor(Math.random() * 8) + 2) * 10;
+    const y = (Math.floor(Math.random() * 8) + 3) * 10;
+    const z = (Math.floor(Math.random() * 8) + 1) * 10;
+    correctAnswer = x + y + z;
+    code = `koin = [${x}, ${y}, ${z}]\ntotal = sum(koin)\nprint(total)`;
+  }
+
+  const wrongSet = new Set<number>();
+  const offsets = [-30, -20, -10, 10, 20, 30, 40, -40, 50];
+  while (wrongSet.size < 3) {
+    const off = offsets[Math.floor(Math.random() * offsets.length)];
+    const candidate = correctAnswer + off;
+    if (candidate > 0 && candidate !== correctAnswer) {
+      wrongSet.add(candidate);
+    }
+  }
+
+  const rawValues = [correctAnswer, ...Array.from(wrongSet)];
+  // Shuffle
+  for (let i = rawValues.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rawValues[i], rawValues[j]] = [rawValues[j], rawValues[i]];
+  }
+
+  const labels: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
+  return {
+    code,
+    question: 'Berapakah hasil output dari print(...) pada kode Python di atas?',
+    options: rawValues.map((val, idx) => ({ label: labels[idx], value: val })),
+    correctAnswer
+  };
+}
+
 interface Lobby3DProps {
   socket?: any;
   playerName: string;
+  walletId?: string;
+  walletBalance?: number;
+  walletWins?: number;
+  leaderboard?: WalletRecord[];
+  onClaimRelief?: () => void;
   onUpdatePlayerName: (name: string) => void;
   onSelectTable: (roomId: string) => void;
   isBgmPlaying: boolean;
@@ -142,6 +212,11 @@ interface RemotePlayer {
 export const Lobby3D: React.FC<Lobby3DProps> = ({
   socket,
   playerName,
+  walletId,
+  walletBalance = 1000000,
+  walletWins = 0,
+  leaderboard = [],
+  onClaimRelief,
   onUpdatePlayerName,
   onSelectTable,
   isBgmPlaying,
@@ -152,8 +227,13 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
   // UI state
   const [roomData, setRoomData] = useState<Record<string, RoomInfo>>({});
+  const [fetchedLeaderboard, setFetchedLeaderboard] = useState<WalletRecord[]>([]);
   const [nearbyTable, setNearbyTable] = useState<TableConfig | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
+  const [isNearCashier, setIsNearCashier] = useState<boolean>(false);
+  const [showCashierModal, setShowCashierModal] = useState<boolean>(false);
+  const [pythonQuiz, setPythonQuiz] = useState<PythonQuizQuestion>(() => generatePythonAdditionQuiz());
+  const [quizFeedback, setQuizFeedback] = useState<{ type: 'correct' | 'wrong'; message: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionProgress, setTransitionProgress] = useState(0);
 
@@ -235,8 +315,43 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const tableSpotlightsRef = useRef<Map<string, THREE.SpotLight>>(new Map());
   const tableBillboardsRef = useRef<Map<string, THREE.Sprite>>(new Map());
   const nearbyTableRef = useRef<TableConfig | null>(null);
+  const cashierSpotlightRef = useRef<THREE.SpotLight | null>(null);
+  const cashierBillboardRef = useRef<THREE.Sprite | null>(null);
+  const cashierNpcRightArmRef = useRef<THREE.Group | null>(null);
+  const cashierNpcBodyRef = useRef<THREE.Mesh | null>(null);
+  const isNearCashierRef = useRef<boolean>(false);
   const isTransitioningRef = useRef<boolean>(false);
   const handleEnterTableRef = useRef<(table: TableConfig) => void>(() => {});
+  const handleOpenCashierRef = useRef<() => void>(() => {});
+
+  const handleOpenCashierModal = useCallback(() => {
+    setPythonQuiz(generatePythonAdditionQuiz());
+    setQuizFeedback(null);
+    setShowCashierModal(true);
+    soundEffects.playChatPop();
+  }, []);
+
+  handleOpenCashierRef.current = handleOpenCashierModal;
+
+  const handleSelectQuizOption = (selectedValue: number) => {
+    if (selectedValue === pythonQuiz.correctAnswer) {
+      soundEffects.playWinFanfare();
+      setQuizFeedback({
+        type: 'correct',
+        message: '🎉 Jawaban Benar! Selamat, saldo dompet Anda telah diisi ulang sebesar Rp 1.000.000!'
+      });
+      if (onClaimRelief) {
+        onClaimRelief();
+      }
+    } else {
+      soundEffects.playCheckSound();
+      setQuizFeedback({
+        type: 'wrong',
+        message: '❌ Jawaban kurang tepat! Coba hitung lagi soal Python baru di bawah ini:'
+      });
+      setPythonQuiz(generatePythonAdditionQuiz());
+    }
+  };
 
   // Virtual Joystick touch state
   const joystickTouchRef = useRef<{ active: boolean; startX: number; startY: number; currX: number; currY: number }>({
@@ -247,18 +362,27 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     currY: 0
   });
 
-  // Fetch live table stats from server
+  // Fetch live table stats & leaderboard from server
   const fetchRoomStats = useCallback(async () => {
     try {
       const serverUrl = import.meta.env.VITE_SERVER_URL || '';
-      const res = await fetch(`${serverUrl}/api/rooms`);
-      if (res.ok) {
-        const rooms: RoomInfo[] = await res.json();
+      const [resRooms, resLb] = await Promise.all([
+        fetch(`${serverUrl}/api/rooms`),
+        fetch(`${serverUrl}/api/leaderboard`)
+      ]);
+      if (resRooms.ok) {
+        const rooms: RoomInfo[] = await resRooms.json();
         const map: Record<string, RoomInfo> = {};
         rooms.forEach(r => {
           map[r.roomId] = r;
         });
         setRoomData(map);
+      }
+      if (resLb.ok) {
+        const lb: WalletRecord[] = await resLb.json();
+        if (Array.isArray(lb)) {
+          setFetchedLeaderboard(lb);
+        }
       }
     } catch {
       // server might still be booting or offline
@@ -576,7 +700,9 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     socket.emit('lobby:join', {
       name: playerName,
       suitColorIdx,
-      position: [playerPosRef.current.x, 0, playerPosRef.current.z]
+      position: [playerPosRef.current.x, 0, playerPosRef.current.z],
+      walletId,
+      clientCachedBalance: walletBalance
     });
 
     // Periodic sync with server via HTTP fallback every 2.5s
@@ -790,6 +916,59 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     ctx.fillStyle = table.tagColor;
     ctx.font = 'bold 22px "Outfit", sans-serif';
     ctx.fillText('Klik / Dekati →', 300, 205);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  };
+
+  // Helper to create Cashier Booth (Loket Isi Ulang Chip NPC) Billboard Texture
+  const createCashierBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, 512, 256);
+
+    // Glowing emerald & gold card
+    ctx.fillStyle = 'rgba(6, 46, 34, 0.94)';
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.roundRect(16, 16, 480, 224, 32);
+    ctx.fill();
+    ctx.stroke();
+
+    // Banner
+    ctx.fillStyle = '#34d399';
+    ctx.font = '900 22px "Outfit", sans-serif';
+    ctx.fillText('🏦 LOKET BANK CHIP • KUIS PYTHON', 38, 60);
+
+    // Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 34px "Outfit", sans-serif';
+    ctx.fillText('Isi Ulang Rp 1.000.000', 38, 108);
+
+    // Subtitle
+    ctx.fillStyle = '#fef08a';
+    ctx.font = '700 22px "JetBrains Mono", monospace';
+    ctx.fillText('Jawab 1 Soal Python (Saat Chip Rp 0)', 38, 152);
+
+    // NPC Badge pill
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+    ctx.beginPath();
+    ctx.roundRect(38, 174, 240, 44, 22);
+    ctx.fill();
+
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 21px "Outfit", sans-serif';
+    ctx.fillText('👨‍💻 NPC: Pak Python', 54, 204);
+
+    // CTA
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 22px "Outfit", sans-serif';
+    ctx.fillText('Dekati [E] →', 310, 204);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
@@ -1240,6 +1419,112 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       scene.add(tableGroup);
     });
 
+    // 6b. Build 3D Cashier Booth (Loket Isi Ulang Chip) & NPC "Pak Python" at Center-North [0, 0, -9.0]
+    const cashierGroup = new THREE.Group();
+    cashierGroup.position.set(...CASHIER_BOOTH_POS);
+    cashierGroup.name = 'cashier_booth';
+
+    // Golden Emerald Base Platform
+    const boothPlatform = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.14, 2.6),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.4, metalness: 0.3 })
+    );
+    boothPlatform.position.set(0, 0.07, -0.2);
+    boothPlatform.receiveShadow = true;
+    cashierGroup.add(boothPlatform);
+
+    // Front Counter Desk Body
+    const counterBody = new THREE.Mesh(
+      new THREE.BoxGeometry(3.4, 1.15, 0.85),
+      new THREE.MeshStandardMaterial({ color: 0x1e130c, roughness: 0.35, metalness: 0.25 })
+    );
+    counterBody.position.set(0, 0.64, 0.55);
+    counterBody.castShadow = true;
+    counterBody.receiveShadow = true;
+    cashierGroup.add(counterBody);
+
+    // Gold Front Trim Bars on Counter
+    for (let gx = -1.3; gx <= 1.3; gx += 0.65) {
+      const goldBar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 1.05, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.85 })
+      );
+      goldBar.position.set(gx, 0.64, 0.99);
+      cashierGroup.add(goldBar);
+    }
+
+    // White & Gold Marble Counter Top
+    const counterTop = new THREE.Mesh(
+      new THREE.BoxGeometry(3.65, 0.14, 1.05),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.15, metalness: 0.15 })
+    );
+    counterTop.position.set(0, 1.25, 0.55);
+    counterTop.castShadow = true;
+    cashierGroup.add(counterTop);
+
+    // Side Golden Pillars & Top Canopy Arch
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.85 });
+    const leftPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.5, 16), pillarMat);
+    leftPillar.position.set(-1.55, 2.0, 0.55);
+    cashierGroup.add(leftPillar);
+
+    const rightPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.5, 16), pillarMat);
+    rightPillar.position.set(1.55, 2.0, 0.55);
+    cashierGroup.add(rightPillar);
+
+    const canopyBeam = new THREE.Mesh(
+      new THREE.BoxGeometry(3.5, 0.22, 0.45),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.3, metalness: 0.5 })
+    );
+    canopyBeam.position.set(0, 2.75, 0.55);
+    cashierGroup.add(canopyBeam);
+
+    // Bank Glass Partition with Teller Window Cutout Effect
+    const tellerGlass = new THREE.Mesh(
+      new THREE.BoxGeometry(2.9, 0.9, 0.04),
+      new THREE.MeshStandardMaterial({ color: 0xa7f3d0, transparent: true, opacity: 0.22, roughness: 0.1 })
+    );
+    tellerGlass.position.set(0, 1.95, 0.55);
+    cashierGroup.add(tellerGlass);
+
+    // 3D Gold Ingots & Chip Stacks on Counter Top
+    const ingotMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.2, metalness: 0.9 });
+    [-0.95, -0.7, 0.7, 0.95].forEach((ix, idx) => {
+      const ingot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.34), ingotMat);
+      ingot.position.set(ix, 1.37, 0.55 + (idx % 2 === 0 ? -0.1 : 0.1));
+      ingot.castShadow = true;
+      cashierGroup.add(ingot);
+    });
+
+    // NPC Character "Pak Python" standing behind the counter
+    const npcAvatar = createAvatar('🏦 PAK PYTHON (NPC)', 3, false);
+    npcAvatar.group.position.set(0, 0.08, -0.35);
+    npcAvatar.group.rotation.y = 0; // Facing South towards players
+    cashierNpcRightArmRef.current = npcAvatar.rightArm;
+    cashierNpcBodyRef.current = npcAvatar.bodyMesh;
+    cashierGroup.add(npcAvatar.group);
+
+    // Floating 3D Billboard above Cashier Booth
+    const cashierBillboardTex = createCashierBillboardTexture();
+    const cashierBillboardMat = new THREE.SpriteMaterial({ map: cashierBillboardTex, transparent: true });
+    const cashierBillboardSprite = new THREE.Sprite(cashierBillboardMat);
+    cashierBillboardSprite.scale.set(4.3, 2.15, 1.0);
+    cashierBillboardSprite.position.set(0, 3.85, 0.2);
+    cashierGroup.add(cashierBillboardSprite);
+    cashierBillboardRef.current = cashierBillboardSprite;
+
+    // Spotlight over Cashier Booth
+    const cashierSpot = new THREE.SpotLight(0x6ee7b7, 2.0);
+    cashierSpot.position.set(CASHIER_BOOTH_POS[0], 5.0, CASHIER_BOOTH_POS[2] + 1.5);
+    cashierSpot.target = cashierGroup;
+    cashierSpot.angle = 0.6;
+    cashierSpot.penumbra = 0.5;
+    cashierSpot.distance = 10;
+    scene.add(cashierSpot);
+    cashierSpotlightRef.current = cashierSpot;
+
+    scene.add(cashierGroup);
+
     // 7. Click Destination Marker (Expanding Gold Pulse Ring)
     const markerGeo = new THREE.RingGeometry(0.35, 0.5, 32);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0 });
@@ -1315,6 +1600,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           e.preventDefault();
           e.stopPropagation();
           handleEnterTableRef.current(table);
+        } else if (isNearCashierRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleOpenCashierRef.current();
         }
       }
     };
@@ -1339,6 +1628,24 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       mouseVector.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouseVector, camera);
+
+      // Check click on Cashier Booth (Loket Isi Ulang Chip NPC)
+      const cashierObj = scene.getObjectByName('cashier_booth');
+      if (cashierObj) {
+        const cashierHits = raycaster.intersectObjects(cashierObj.children, true);
+        if (cashierHits.length > 0) {
+          destinationRef.current = {
+            x: CASHIER_BOOTH_POS[0],
+            z: CASHIER_BOOTH_POS[2] + 2.7
+          };
+          if (isNearCashierRef.current) {
+            handleOpenCashierRef.current();
+          } else {
+            showLoungeToast('🏦 Berjalan menuju Loket Kasir NPC (Pak Python)...');
+          }
+          return;
+        }
+      }
 
       // Check click on tables first
       for (const tableConfig of CASINO_TABLES) {
@@ -1484,6 +1791,19 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         }
       });
 
+      // Cashier Booth Collision check (keep player in front of counter desk)
+      {
+        const cdx = playerPosRef.current.x - CASHIER_BOOTH_POS[0];
+        const cdz = playerPosRef.current.z - CASHIER_BOOTH_POS[2];
+        const cdist = Math.hypot(cdx, cdz);
+        const cMinRadius = 1.9;
+        if (cdist < cMinRadius && cdist > 0.001) {
+          const push = (cMinRadius - cdist) / cdist;
+          playerPosRef.current.x += cdx * push;
+          playerPosRef.current.z += cdz * push;
+        }
+      }
+
       isWalkingRef.current = isMoving;
 
       // Update Character Transform
@@ -1623,6 +1943,37 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       nearbyTableRef.current = closest;
       setNearbyTable(closest);
 
+      // Proximity Detection & Animation for Cashier Booth (Loket Isi Ulang Chip NPC)
+      const cashierDist = Math.hypot(
+        playerPosRef.current.x - CASHIER_BOOTH_POS[0],
+        playerPosRef.current.z - (CASHIER_BOOTH_POS[2] + 0.8)
+      );
+      const nearCashier = cashierDist < 4.2 && !closest;
+      isNearCashierRef.current = nearCashier;
+      setIsNearCashier(nearCashier);
+
+      if (cashierSpotlightRef.current) {
+        cashierSpotlightRef.current.intensity = nearCashier ? 3.2 : 2.0;
+      }
+      if (cashierBillboardRef.current) {
+        if (nearCashier) {
+          cashierBillboardRef.current.scale.set(4.8, 2.4, 1.0);
+          cashierBillboardRef.current.position.y = 3.95 + Math.sin(time * 0.004) * 0.08;
+        } else {
+          cashierBillboardRef.current.scale.set(4.3, 2.15, 1.0);
+          cashierBillboardRef.current.position.y = 3.85;
+        }
+      }
+      // NPC Pak Python friendly idle wave & breathing
+      if (cashierNpcRightArmRef.current) {
+        cashierNpcRightArmRef.current.rotation.z = nearCashier
+          ? -2.35 + Math.sin(time * 0.009) * 0.35
+          : Math.sin(time * 0.002) * 0.08;
+      }
+      if (cashierNpcBodyRef.current) {
+        cashierNpcBodyRef.current.position.y = 1.35 + Math.sin(time * 0.003) * 0.025;
+      }
+
       // Smooth Third-Person Camera Follow
       if (cameraRef.current && !isTransitioning) {
         const targetCamX = playerPosRef.current.x * 0.45;
@@ -1712,6 +2063,8 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     if (isTransitioningRef.current) return;
     if (socket) {
       socket.emit('lobby:leave');
+      // Pre-join the poker room during the camera zoom so tableState is ready immediately
+      socket.emit('joinRoom', { roomId: table.id, playerName });
     }
     isTransitioningRef.current = true;
     setIsTransitioning(true);
@@ -1758,13 +2111,17 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           e.preventDefault();
           e.stopPropagation();
           handleEnterTable(nearbyTable);
+        } else if (isNearCashier && !isTransitioning && !showCashierModal) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleOpenCashierModal();
         }
       }
     };
 
     window.addEventListener('keydown', handleGlobalKey, true);
     return () => window.removeEventListener('keydown', handleGlobalKey, true);
-  }, [nearbyTable, isTransitioning]);
+  }, [nearbyTable, isNearCashier, isTransitioning, showCashierModal, handleOpenCashierModal]);
 
   // Virtual joystick touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -1922,6 +2279,69 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             ))}
           </div>
 
+          {/* Persistent Wallet Balance Pill in Lobby Header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.9), rgba(4, 47, 46, 0.92))',
+              backdropFilter: 'blur(12px)',
+              padding: '7px 15px',
+              borderRadius: '999px',
+              border: '1.5px solid rgba(52, 211, 153, 0.6)',
+              boxShadow: '0 4px 18px rgba(16, 185, 129, 0.25)',
+              color: '#a7f3d0',
+              fontSize: '13px',
+              fontWeight: 900
+            }}
+            title="Saldo Chip Anda (Tersimpan Otomatis)"
+          >
+            <span>💰 Saldo:</span>
+            <span style={{ color: '#fef08a', fontFamily: 'monospace', fontSize: '14px' }}>
+              Rp {walletBalance.toLocaleString('id-ID')}
+            </span>
+            {walletWins > 0 && (
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  background: 'rgba(245, 158, 11, 0.25)',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
+                  color: '#fde68a',
+                  padding: '1px 7px',
+                  borderRadius: '999px'
+                }}
+              >
+                🏆 {walletWins}x
+              </span>
+            )}
+            {walletBalance <= 0 && (
+              <button
+                onClick={() => {
+                  destinationRef.current = {
+                    x: CASHIER_BOOTH_POS[0],
+                    z: CASHIER_BOOTH_POS[2] + 2.7
+                  };
+                  showLoungeToast('🏦 Berjalan menuju Loket Kasir NPC (Pak Python)...');
+                }}
+                style={{
+                  marginLeft: '4px',
+                  padding: '3px 9px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#0f172a',
+                  fontSize: '10.5px',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  border: 'none'
+                }}
+                title="Jalan ke Loket Kasir NPC untuk menjawab Kuis Python (+Rp 1.000.000)"
+              >
+                🏦 Ke Loket NPC
+              </button>
+            )}
+          </div>
+
           {/* Player Name Pill */}
           <button
             onClick={() => {
@@ -2077,9 +2497,14 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
                   border: '1px solid #ffffff'
                 }}
               />
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a' }}>
-                {playerName} (Anda)
-              </span>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a' }}>
+                  {playerName} (Anda)
+                </div>
+                <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#34d399', fontFamily: 'monospace' }}>
+                  Rp {walletBalance.toLocaleString('id-ID')}
+                </div>
+              </div>
             </div>
             <span style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 800 }}>👑 VIP</span>
           </div>
@@ -2136,6 +2561,145 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
               </div>
             ))
           )}
+        </div>
+      </div>
+
+      {/* Floating Leaderboard (Papan Peringkat Sultan) Panel on Right Side */}
+      <div
+        className="lobby-ui-element"
+        style={{
+          position: 'absolute',
+          top: '80px',
+          right: '16px',
+          zIndex: 25,
+          background: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(245, 158, 11, 0.45)',
+          borderRadius: '16px',
+          padding: '12px 14px',
+          boxShadow: '0 14px 36px rgba(0,0,0,0.75)',
+          width: '295px',
+          pointerEvents: 'auto'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <Award size={16} color="#f59e0b" />
+            <span style={{ fontSize: '13px', fontWeight: 900, color: '#fef08a', letterSpacing: '0.02em' }}>
+              Papan Peringkat Sultan
+            </span>
+          </div>
+          <span
+            style={{
+              fontSize: '9.5px',
+              fontWeight: 800,
+              color: '#34d399',
+              background: 'rgba(16, 185, 129, 0.14)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              padding: '2px 7px',
+              borderRadius: '999px'
+            }}
+          >
+            Real-Time
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
+          {(() => {
+            const activeList = leaderboard.length > 0 ? leaderboard : fetchedLeaderboard;
+            // Ensure current user is always visible in the list even before first server sync
+            const hasMe = activeList.some(
+              item =>
+                (walletId && item.walletId === walletId) ||
+                item.name.trim().toLowerCase() === playerName.trim().toLowerCase()
+            );
+            const combined = hasMe
+              ? activeList
+              : [
+                  ...activeList,
+                  {
+                    walletId: walletId || 'local',
+                    name: playerName,
+                    balance: walletBalance,
+                    wins: walletWins,
+                    handsPlayed: 0,
+                    updatedAt: Date.now()
+                  }
+                ].sort((a, b) => b.balance - a.balance);
+
+            return combined.slice(0, 10).map((entry, idx) => {
+              const isMeEntry =
+                (walletId && entry.walletId === walletId) ||
+                entry.name.trim().toLowerCase() === playerName.trim().toLowerCase();
+              const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+
+              return (
+                <div
+                  key={entry.walletId || `${entry.name}-${idx}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '7px 10px',
+                    borderRadius: '10px',
+                    background: isMeEntry
+                      ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(16, 185, 129, 0.15))'
+                      : idx === 0
+                      ? 'rgba(245, 158, 11, 0.1)'
+                      : 'rgba(255, 255, 255, 0.04)',
+                    border: isMeEntry
+                      ? '1px solid rgba(245, 158, 11, 0.55)'
+                      : '1px solid rgba(255, 255, 255, 0.07)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: idx < 3 ? '14px' : '11px',
+                        fontWeight: 900,
+                        color: idx < 3 ? '#fbbf24' : '#94a3b8',
+                        width: '22px',
+                        textAlign: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      {rankBadge}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: isMeEntry ? '#fef08a' : '#f1f5f9',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '130px'
+                        }}
+                      >
+                        {entry.name} {isMeEntry ? '(Anda)' : entry.isBot ? '🤖' : ''}
+                      </div>
+                      <div style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: 600 }}>
+                        🏆 {entry.wins || 0} Menang
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 900,
+                      color: '#34d399',
+                      fontFamily: 'monospace',
+                      flexShrink: 0
+                    }}
+                  >
+                    Rp {entry.balance.toLocaleString('id-ID')}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -2273,6 +2837,384 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             <Play size={18} fill="#0f172a" />
             <span>MASUK [E]</span>
           </button>
+        </div>
+      )}
+
+      {/* Proximity Cashier Booth Prompt (Appears when character walks near Loket Kasir NPC) */}
+      {isNearCashier && !nearbyTable && !showCashierModal && (
+        <div
+          className="lobby-ui-element animate-fade-in"
+          style={{
+            position: 'absolute',
+            bottom: '36px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, rgba(6, 46, 34, 0.96), rgba(15, 23, 42, 0.96))',
+            backdropFilter: 'blur(16px)',
+            border: '2px solid #34d399',
+            boxShadow: '0 12px 40px rgba(16, 185, 129, 0.45)',
+            borderRadius: '24px',
+            padding: '18px 26px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            maxWidth: '580px',
+            width: '92%',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            animation: 'slideUp 0.25s ease-out'
+          }}
+        >
+          <div
+            style={{
+              width: '62px',
+              height: '62px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #059669, #047857)',
+              border: '2px solid #6ee7b7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              flexShrink: 0,
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+            }}
+          >
+            👨‍💻
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  fontWeight: 900,
+                  color: '#34d399',
+                  background: 'rgba(16, 185, 129, 0.18)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  padding: '2px 8px',
+                  borderRadius: '999px'
+                }}
+              >
+                🏦 LOKET BANK CHIP
+              </span>
+              <span style={{ fontSize: '11px', color: '#fde68a', fontWeight: 700 }}>
+                NPC: Pak Python
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '17px', fontWeight: 900, color: '#f8fafc', marginBottom: '3px' }}>
+              Isi Ulang Modal Rp 1.000.000 (Kuis Python)
+            </h3>
+
+            <div style={{ fontSize: '12.5px', color: walletBalance <= 0 ? '#6ee7b7' : '#cbd5e1', fontWeight: 700 }}>
+              {walletBalance <= 0
+                ? '✅ Chip Anda Rp 0! Jawab 1 soal Python untuk isi ulang Rp 1.000.000'
+                : `Saldo Anda: Rp ${walletBalance.toLocaleString('id-ID')} (Isi ulang hanya saat chip Rp 0)`}
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenCashierModal}
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              border: '1px solid #a7f3d0',
+              padding: '13px 22px',
+              borderRadius: '999px',
+              fontSize: '13.5px',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(16, 185, 129, 0.5)',
+              flexShrink: 0
+            }}
+          >
+            <span>🐍 BUKA LOKET [E]</span>
+          </button>
+        </div>
+      )}
+
+      {/* Cashier Booth Python Quiz Modal (Loket Isi Ulang Chip NPC) */}
+      {showCashierModal && (
+        <div
+          className="modal-overlay lobby-ui-element"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 80
+          }}
+          onClick={() => setShowCashierModal(false)}
+        >
+          <div
+            className="modal-card"
+            style={{
+              background: 'linear-gradient(180deg, #0b1528 0%, #070d19 100%)',
+              border: '2px solid #10b981',
+              borderRadius: '24px',
+              padding: '26px',
+              maxWidth: '480px',
+              width: '92%',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.85), 0 0 40px rgba(16, 185, 129, 0.25)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    border: '2px solid #6ee7b7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px'
+                  }}
+                >
+                  👨‍💻
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 900, color: '#34d399', letterSpacing: '0.05em' }}>
+                    🏦 LOKET BANK CHIP • NPC KASIR
+                  </div>
+                  <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 900, color: '#f8fafc' }}>
+                    Pak Python — Tantangan Kuis
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowCashierModal(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#94a3b8',
+                  fontSize: '14px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {quizFeedback?.type === 'correct' ? (
+              <div
+                style={{
+                  padding: '22px 18px',
+                  borderRadius: '18px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1.5px solid #34d399',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ fontSize: '42px', marginBottom: '8px' }}>🎉💰</div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 900, color: '#6ee7b7' }}>
+                  Jawaban Tepat Sekali!
+                </h3>
+                <p style={{ margin: '0 0 18px 0', fontSize: '13.5px', color: '#e2e8f0', lineHeight: 1.5 }}>
+                  Pak Python telah mengisi ulang saldo dompet Anda sebesar <strong style={{ color: '#fef08a' }}>Rp 1.000.000</strong>. Selamat bermain kembali!
+                </p>
+                <button
+                  onClick={() => setShowCashierModal(false)}
+                  style={{
+                    width: '100%',
+                    padding: '13px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    border: '1px solid #fef08a',
+                    color: '#0f172a',
+                    fontSize: '14px',
+                    fontWeight: 900,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✅ Siap Kembali ke Meja Poker
+                </button>
+              </div>
+            ) : walletBalance > 0 ? (
+              <div
+                style={{
+                  padding: '20px 18px',
+                  borderRadius: '16px',
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.45)',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ fontSize: '34px', marginBottom: '8px' }}>🛡️💰</div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 900, color: '#fef08a' }}>
+                  Saldo Anda Masih Tersedia!
+                </h3>
+                <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: '#cbd5e1', lineHeight: 1.5 }}>
+                  "Halo Bos <strong>{playerName}</strong>! Saldo dompetmu saat ini masih <strong style={{ color: '#34d399' }}>Rp {walletBalance.toLocaleString('id-ID')}</strong>. Sesuai aturan kasino, isi ulang chip <strong>Rp 1.000.000</strong> lewat soal Python hanya bisa diambil saat chipmu sudah benar-benar <strong>Rp 0 (habis total)</strong> ya!"
+                </p>
+                <button
+                  onClick={() => setShowCashierModal(false)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#f8fafc',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mengerti, Tutup Loket
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* NPC Speech Bubble */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '14px',
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    fontSize: '12.5px',
+                    color: '#e2e8f0',
+                    marginBottom: '14px',
+                    lineHeight: 1.45
+                  }}
+                >
+                  💬 <strong>Pak Python:</strong> "Chipmu sudah <strong>Rp 0</strong> ya? Tenang, jawab <strong>1 soal penjumlahan Python</strong> di bawah ini dengan benar untuk langsung dapat modal <strong style={{ color: '#fef08a' }}>Rp 1.000.000</strong>!"
+                </div>
+
+                {quizFeedback?.type === 'wrong' && (
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(244, 63, 94, 0.16)',
+                      border: '1px solid rgba(244, 63, 94, 0.45)',
+                      color: '#fda4af',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      marginBottom: '12px'
+                    }}
+                  >
+                    {quizFeedback.message}
+                  </div>
+                )}
+
+                {/* Python Code Snippet Block */}
+                <div
+                  style={{
+                    borderRadius: '14px',
+                    overflow: 'hidden',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    background: '#050811',
+                    marginBottom: '14px'
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '7px 14px',
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      borderBottom: '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#38bdf8'
+                    }}
+                  >
+                    <span>🐍 soal_kasir.py</span>
+                    <span style={{ color: '#fef08a' }}>Hadiah: +Rp 1.000.000</span>
+                  </div>
+                  <pre
+                    style={{
+                      margin: 0,
+                      padding: '14px 16px',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '14.5px',
+                      fontWeight: 700,
+                      color: '#a7f3d0',
+                      lineHeight: 1.6,
+                      overflowX: 'auto'
+                    }}
+                  >
+                    {pythonQuiz.code}
+                  </pre>
+                </div>
+
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc', marginBottom: '10px' }}>
+                  ❓ {pythonQuiz.question}
+                </div>
+
+                {/* 4 Multiple Choice Buttons (A, B, C, D) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {pythonQuiz.options.map(opt => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => handleSelectQuizOption(opt.value)}
+                      style={{
+                        padding: '13px 14px',
+                        borderRadius: '12px',
+                        background: 'rgba(30, 41, 59, 0.9)',
+                        border: '1.5px solid rgba(52, 211, 153, 0.4)',
+                        color: '#f8fafc',
+                        fontSize: '14px',
+                        fontWeight: 900,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        fontFamily: "'JetBrains Mono', monospace"
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)';
+                        e.currentTarget.style.borderColor = '#34d399';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(30, 41, 59, 0.9)';
+                        e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          color: '#0f172a',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 900,
+                          flexShrink: 0
+                        }}
+                      >
+                        {opt.label}
+                      </span>
+                      <span>{opt.value}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

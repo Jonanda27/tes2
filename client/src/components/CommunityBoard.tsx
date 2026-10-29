@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, PlayerPublic, TableStage, WinnerResult } from '../types.js';
 import { PlayingCard } from './PlayingCard.js';
 import { ChipStack } from './ChipStack.js';
+import { isCardInList } from '../utils/handStrength.js';
 import { Trophy, Clock } from 'lucide-react';
 
 interface CommunityBoardProps {
@@ -11,6 +12,7 @@ interface CommunityBoardProps {
   winners?: WinnerResult[];
   seats?: (PlayerPublic | null)[];
   waitingCountdown?: number;
+  highlightedCards?: Card[];
 }
 
 export const CommunityBoard: React.FC<CommunityBoardProps> = ({
@@ -19,7 +21,8 @@ export const CommunityBoard: React.FC<CommunityBoardProps> = ({
   stage,
   winners,
   seats = [],
-  waitingCountdown
+  waitingCountdown,
+  highlightedCards
 }) => {
   const slots: (Card | null)[] = [
     communityCards[0] ?? null,
@@ -91,7 +94,11 @@ export const CommunityBoard: React.FC<CommunityBoardProps> = ({
                   animationDelay: `${idx < 3 ? idx * 140 : 0}ms`
                 }}
               >
-                <PlayingCard card={card} size="md" />
+                <PlayingCard
+                  card={card}
+                  size="md"
+                  isHighlighted={isCardInList(card, highlightedCards)}
+                />
               </div>
             ) : (
               <div className="card-slot-placeholder">

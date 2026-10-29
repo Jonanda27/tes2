@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '../types.js';
-import { MessageSquare, X, Bot, User, Sparkles } from 'lucide-react';
+import { X, Bot, User, Sparkles } from 'lucide-react';
 
 export interface FloatingChatItem {
   id: string;
@@ -24,7 +24,7 @@ export const FloatingChatFeed: React.FC<FloatingChatFeedProps> = ({
         <FloatingChatBubble
           key={item.id}
           item={item}
-          onDismiss={() => onDismiss(item.id)}
+          onDismiss={onDismiss}
           onOpenChat={onOpenChat}
         />
       ))}
@@ -32,28 +32,55 @@ export const FloatingChatFeed: React.FC<FloatingChatFeedProps> = ({
   );
 };
 
+const AUTO_DISMISS_MS = 3800;
+const FADE_OUT_MS = 350;
+
 const FloatingChatBubble: React.FC<{
   item: FloatingChatItem;
-  onDismiss: () => void;
+  onDismiss: (id: string) => void;
   onOpenChat: () => void;
 }> = ({ item, onDismiss, onOpenChat }) => {
   const { msg } = item;
+  const [isLeaving, setIsLeaving] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
-  // Auto dismiss after 5 seconds
+  // Auto dismiss reliably once per bubble mount (never reset on parent re-renders)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onDismiss();
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
+    const fadeTimer = setTimeout(() => {
+      setIsLeaving(true);
+    }, AUTO_DISMISS_MS - FADE_OUT_MS);
+
+    const removeTimer = setTimeout(() => {
+      onDismissRef.current(item.id);
+    }, AUTO_DISMISS_MS);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [item.id]);
+
+  const handleManualDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLeaving(true);
+    setTimeout(() => {
+      onDismissRef.current(item.id);
+    }, 180);
+  };
+
+  const handleClickBubble = () => {
+    onOpenChat();
+    onDismissRef.current(item.id);
+  };
 
   // Check if message is a pure emote / emoji
   const isEmojiOnly = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Extended_Pictographic}|\s)+$/u.test(msg.message.trim());
 
   return (
     <div
-      className={`floating-chat-bubble ${msg.isSystem ? 'system-msg' : ''}`}
-      onClick={onOpenChat}
+      className={`floating-chat-bubble ${msg.isSystem ? 'system-msg' : ''} ${isLeaving ? 'leaving' : ''}`}
+      onClick={handleClickBubble}
       title="Klik untuk membuka chat penuh"
     >
       {/* Header with Avatar and Sender */}
@@ -81,10 +108,7 @@ const FloatingChatBubble: React.FC<{
         </div>
 
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDismiss();
-          }}
+          onClick={handleManualDismiss}
           className="floating-chat-close"
           title="Tutup notifikasi"
         >

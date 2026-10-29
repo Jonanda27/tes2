@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { PokerTable } from '../engine/PokerTable.js';
-import { ChatMessage } from '../engine/types.js';
+import { ChatMessage, PlayerPrivate } from '../engine/types.js';
+import { WalletManager, DEFAULT_INITIAL_BALANCE, WalletRecord } from '../wallet/WalletManager.js';
 
 export interface RoomInfo {
   roomId: string;
@@ -20,22 +21,27 @@ export interface LobbyPlayer {
   position: [number, number, number];
   rotationY: number;
   isMoving: boolean;
+  balance?: number;
+  wins?: number;
 }
 
 export class RoomManager {
   private io: Server;
   private tables: Map<string, PokerTable> = new Map();
   private socketToRoom: Map<string, string> = new Map();
+  private socketToWalletId: Map<string, string> = new Map();
   private voiceUsersInRoom: Map<string, Map<string, { socketId: string; playerName: string }>> = new Map();
   private lobbyPlayers: Map<string, LobbyPlayer> = new Map();
+  public walletManager: WalletManager;
 
   constructor(io: Server) {
     this.io = io;
-    // Create default tables for 3D Casino Lounge
-    this.getOrCreateTable('meja-1', 'Meja Santai #1', { smallBlind: 1000, bigBlind: 2000, startingChips: 100000 });
-    this.getOrCreateTable('meja-2', 'Meja Reguler #2', { smallBlind: 2500, bigBlind: 5000, startingChips: 250000 });
+    this.walletManager = new WalletManager();
+    // Create default tables for 3D Casino Lounge (Every new user starts with Rp 1.000.000)
+    this.getOrCreateTable('meja-1', 'Meja Santai #1', { smallBlind: 1000, bigBlind: 2000, startingChips: 1000000 });
+    this.getOrCreateTable('meja-2', 'Meja Reguler #2', { smallBlind: 2500, bigBlind: 5000, startingChips: 1000000 });
     this.getOrCreateTable('meja-vip', 'Meja VIP High Roller', { smallBlind: 10000, bigBlind: 20000, startingChips: 1000000 });
-    this.getOrCreateTable('meja-turnamen', 'Meja Turnamen Royale', { smallBlind: 25000, bigBlind: 50000, startingChips: 2500000 });
+    this.getOrCreateTable('meja-turnamen', 'Meja Turnamen Royale', { smallBlind: 25000, bigBlind: 50000, startingChips: 1000000 });
   }
 
   public getOrCreateTable(
@@ -49,15 +55,63 @@ export class RoomManager {
       table = new PokerTable({
         roomId: cleanId,
         roomName: roomName || `Meja ${cleanId.toUpperCase()}`,
-        startingChips: options?.startingChips || 100000,
+        startingChips: options?.startingChips || DEFAULT_INITIAL_BALANCE,
         smallBlind: options?.smallBlind || 1000,
         bigBlind: options?.bigBlind || 2000,
         onStateChange: () => this.broadcastTableState(cleanId),
-        onChatMessage: (msg: ChatMessage) => this.broadcastChatMessage(cleanId, msg)
+        onChatMessage: (msg: ChatMessage) => this.broadcastChatMessage(cleanId, msg),
+        onWalletSync: (player: PlayerPrivate, didWin?: boolean) => this.handlePlayerWalletSync(player, didWin),
+        onPlayerLeaveSeat: (player: PlayerPrivate) => this.handlePlayerLeaveSeat(player)
       });
       this.tables.set(cleanId, table);
     }
     return table;
+  }
+
+  private handlePlayerWalletSync(player: PlayerPrivate, didWin?: boolean): void {
+    const record = this.walletManager.syncTableChips(
+      player.walletId,
+      player.name,
+      player.chips,
+      player.isBot
+    );
+    if (didWin) {
+      this.walletManager.recordWin(player.walletId, player.name, player.isBot);
+    }
+    if (!player.isBot) {
+      this.io.to(player.id).emit('wallet:updated', record);
+      const lobbyP = this.lobbyPlayers.get(player.id);
+      if (lobbyP) {
+        lobbyP.balance = record.balance + (record.tableChips || 0);
+        lobbyP.wins = record.wins;
+      }
+    }
+  }
+
+  private handlePlayerLeaveSeat(player: PlayerPrivate): void {
+    const record = this.walletManager.cashOutFromTable(
+      player.walletId,
+      player.name,
+      player.chips,
+      player.isBot
+    );
+    if (!player.isBot) {
+      this.io.to(player.id).emit('wallet:updated', record);
+      this.io.to(player.id).emit('wallet:cashed-out', {
+        cashedOutChips: player.chips,
+        newWalletBalance: record.balance
+      });
+      const lobbyP = this.lobbyPlayers.get(player.id);
+      if (lobbyP) {
+        lobbyP.balance = record.balance;
+        lobbyP.wins = record.wins;
+      }
+    }
+    this.io.emit('leaderboard:updated', this.getLeaderboard(15));
+  }
+
+  public getLeaderboard(limit: number = 15): WalletRecord[] {
+    return this.walletManager.getLeaderboard(limit);
   }
 
   public listRooms(): RoomInfo[] {
@@ -83,32 +137,107 @@ export class RoomManager {
   }
 
   public handleSocketConnection(socket: Socket): void {
+    // === 0a. Persistent Wallet & Leaderboard Sync ===
+    socket.on(
+      'wallet:sync',
+      ({
+        walletId,
+        name,
+        clientCachedBalance
+      }: {
+        walletId?: string;
+        name?: string;
+        clientCachedBalance?: number;
+      }) => {
+        const record = this.walletManager.getOrCreateWallet(
+          walletId,
+          name || 'Pemain',
+          clientCachedBalance,
+          false
+        );
+        this.socketToWalletId.set(socket.id, record.walletId);
+
+        const lobbyP = this.lobbyPlayers.get(socket.id);
+        if (lobbyP) {
+          lobbyP.name = record.name;
+          lobbyP.balance = record.balance;
+          lobbyP.wins = record.wins;
+        }
+
+        socket.emit('wallet:updated', record);
+        this.io.emit('leaderboard:updated', this.getLeaderboard(15));
+      }
+    );
+
+    socket.on(
+      'wallet:claim-relief',
+      ({ walletId, name }: { walletId?: string; name?: string }) => {
+        const wId = walletId || this.socketToWalletId.get(socket.id);
+        const record = this.walletManager.getOrCreateWallet(wId, name || 'Pemain');
+        const totalWealth = record.balance + (record.tableChips || 0);
+        if (totalWealth > 0) {
+          socket.emit('errorAlert', 'Isi ulang di Loket Kasir NPC hanya bisa dilakukan saat chip Anda benar-benar Rp 0!');
+          return;
+        }
+        const updated = this.walletManager.updateBalance(record.walletId, record.name, DEFAULT_INITIAL_BALANCE, false);
+        socket.emit('wallet:updated', updated);
+        this.io.emit('leaderboard:updated', this.getLeaderboard(15));
+      }
+    );
+
     // === 0. 3D Casino Lounge Presence & Movement ===
-    socket.on('lobby:join', ({ name, suitColorIdx, position }: { name: string; suitColorIdx: number; position?: [number, number, number] }) => {
-      socket.join('casino-lobby');
-      const player: LobbyPlayer = {
-        id: socket.id,
-        name: (name || 'Pemain').trim(),
-        suitColorIdx: typeof suitColorIdx === 'number' ? suitColorIdx : 0,
-        position: position || [0, 0, 1],
-        rotationY: 0,
-        isMoving: false
-      };
-      this.lobbyPlayers.set(socket.id, player);
+    socket.on(
+      'lobby:join',
+      ({
+        name,
+        suitColorIdx,
+        position,
+        walletId,
+        clientCachedBalance
+      }: {
+        name: string;
+        suitColorIdx: number;
+        position?: [number, number, number];
+        walletId?: string;
+        clientCachedBalance?: number;
+      }) => {
+        socket.join('casino-lobby');
+        const cleanName = (name || 'Pemain').trim();
+        const wId = walletId || this.socketToWalletId.get(socket.id);
+        const walletRecord = this.walletManager.getOrCreateWallet(wId, cleanName, clientCachedBalance, false);
+        this.socketToWalletId.set(socket.id, walletRecord.walletId);
 
-      console.log(`[LOBBY 3D] "${player.name}" (${socket.id}) entered Lounge. Total online in Lounge: ${this.lobbyPlayers.size}`);
+        const player: LobbyPlayer = {
+          id: socket.id,
+          name: cleanName,
+          suitColorIdx: typeof suitColorIdx === 'number' ? suitColorIdx : 0,
+          position: position || [0, 0, 1],
+          rotationY: 0,
+          isMoving: false,
+          balance: walletRecord.balance,
+          wins: walletRecord.wins
+        };
+        this.lobbyPlayers.set(socket.id, player);
 
-      // Send all existing lobby players to this client
-      const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
-      socket.emit('lobby:all-players', otherPlayers);
+        console.log(`[LOBBY 3D] "${player.name}" (${socket.id}) entered Lounge. Saldo: Rp ${walletRecord.balance.toLocaleString('id-ID')}`);
 
-      // Broadcast to everyone else in the lounge
-      socket.to('casino-lobby').emit('lobby:player-joined', player);
-    });
+        socket.emit('wallet:updated', walletRecord);
+        socket.emit('leaderboard:updated', this.getLeaderboard(15));
+
+        // Send all existing lobby players to this client
+        const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
+        socket.emit('lobby:all-players', otherPlayers);
+
+        // Broadcast to everyone else in the lounge
+        socket.to('casino-lobby').emit('lobby:player-joined', player);
+        this.io.emit('leaderboard:updated', this.getLeaderboard(15));
+      }
+    );
 
     socket.on('lobby:request-sync', () => {
       const otherPlayers = Array.from(this.lobbyPlayers.values()).filter(p => p.id !== socket.id);
       socket.emit('lobby:all-players', otherPlayers);
+      socket.emit('leaderboard:updated', this.getLeaderboard(15));
     });
 
     socket.on('lobby:move', ({ position, rotationY, isMoving }: { position: [number, number, number]; rotationY: number; isMoving: boolean }) => {
@@ -126,15 +255,23 @@ export class RoomManager {
       }
     });
 
-    socket.on('lobby:update-outfit', ({ suitColorIdx, name }: { suitColorIdx: number; name?: string }) => {
+    socket.on('lobby:update-outfit', ({ suitColorIdx, name, walletId }: { suitColorIdx: number; name?: string; walletId?: string }) => {
       const player = this.lobbyPlayers.get(socket.id);
+      const wId = walletId || this.socketToWalletId.get(socket.id);
+      if (name && name.trim()) {
+        const updatedWallet = this.walletManager.updatePlayerName(wId, player?.name || name, name.trim());
+        socket.emit('wallet:updated', updatedWallet);
+        this.io.emit('leaderboard:updated', this.getLeaderboard(15));
+      }
       if (player) {
         if (typeof suitColorIdx === 'number') player.suitColorIdx = suitColorIdx;
         if (name) player.name = name.trim();
         socket.to('casino-lobby').emit('lobby:player-updated', {
           id: socket.id,
           suitColorIdx: player.suitColorIdx,
-          name: player.name
+          name: player.name,
+          balance: player.balance,
+          wins: player.wins
         });
       }
     });
@@ -149,31 +286,55 @@ export class RoomManager {
     });
 
     // 1. Join poker room
-    socket.on('joinRoom', ({ roomId, playerName }: { roomId: string; playerName: string }) => {
-      const cleanId = (roomId || 'meja-1').trim().toLowerCase();
-      const currentRoom = this.socketToRoom.get(socket.id);
-      if (currentRoom && currentRoom !== cleanId) {
-        socket.leave(currentRoom);
-        const oldTable = this.tables.get(currentRoom);
-        oldTable?.leave(socket.id);
-      }
-
-      const table = this.getOrCreateTable(cleanId);
-      socket.join(cleanId);
-      this.socketToRoom.set(socket.id, cleanId);
-
-      // Rebind socket to seat if player is reconnecting or refreshed page
-      if (playerName) {
-        const reconnected = table.rebindPlayerSocket(playerName, socket.id);
-        if (reconnected) {
-          this.broadcastTableState(cleanId);
+    socket.on(
+      'joinRoom',
+      ({
+        roomId,
+        playerName,
+        walletId,
+        clientCachedBalance
+      }: {
+        roomId: string;
+        playerName: string;
+        walletId?: string;
+        clientCachedBalance?: number;
+      }) => {
+        const cleanId = (roomId || 'meja-1').trim().toLowerCase();
+        const currentRoom = this.socketToRoom.get(socket.id);
+        if (currentRoom && currentRoom !== cleanId) {
+          socket.leave(currentRoom);
+          const oldTable = this.tables.get(currentRoom);
+          oldTable?.leave(socket.id);
         }
-      }
 
-      // Send initial public table state
-      socket.emit('tableState', table.getPublicState());
-      socket.emit('myCards', table.getPlayerCards(socket.id));
-    });
+        const wId = walletId || this.socketToWalletId.get(socket.id);
+        const walletRecord = this.walletManager.getOrCreateWallet(
+          wId,
+          playerName || 'Pemain',
+          clientCachedBalance,
+          false
+        );
+        this.socketToWalletId.set(socket.id, walletRecord.walletId);
+
+        const table = this.getOrCreateTable(cleanId);
+        socket.join(cleanId);
+        this.socketToRoom.set(socket.id, cleanId);
+
+        // Rebind socket to seat if player is reconnecting or refreshed page
+        if (playerName) {
+          const reconnected = table.rebindPlayerSocket(playerName, socket.id, walletRecord.walletId);
+          if (reconnected) {
+            this.broadcastTableState(cleanId);
+          }
+        }
+
+        // Send initial public table state & wallet state
+        socket.emit('tableState', table.getPublicState());
+        socket.emit('myCards', table.getPlayerCards(socket.id));
+        socket.emit('wallet:updated', walletRecord);
+        socket.emit('leaderboard:updated', this.getLeaderboard(15));
+      }
+    );
 
     // 1b. Request private cards explicitly
     socket.on('requestMyCards', () => {
@@ -184,25 +345,83 @@ export class RoomManager {
       socket.emit('myCards', table.getPlayerCards(socket.id));
     });
 
-    // 2. Sit at table
+    // 2. Sit at table with chosen Buy-In amount (Opsi 1: Buy-In from Wallet)
     socket.on(
       'sit',
-      ({ seatIndex, playerName }: { seatIndex: number; playerName: string }) => {
+      ({
+        seatIndex,
+        playerName,
+        walletId,
+        clientCachedBalance,
+        buyInAmount
+      }: {
+        seatIndex: number;
+        playerName: string;
+        walletId?: string;
+        clientCachedBalance?: number;
+        buyInAmount?: number;
+      }) => {
         const roomId = this.socketToRoom.get(socket.id);
         if (!roomId) return;
         const table = this.tables.get(roomId);
         if (!table) return;
 
-        const result = table.sit(socket.id, playerName || 'Pemain', seatIndex);
+        const wId = walletId || this.socketToWalletId.get(socket.id);
+        let walletRecord = this.walletManager.getOrCreateWallet(
+          wId,
+          playerName || 'Pemain',
+          clientCachedBalance,
+          false
+        );
+        this.socketToWalletId.set(socket.id, walletRecord.walletId);
+
+        if (walletRecord.balance <= 0) {
+          socket.emit(
+            'errorAlert',
+            'Saldo Dompet Anda Rp 0! Silakan keluar ke Lounge 3D dan isi ulang di Loket Kasir NPC dengan menjawab soal Python.'
+          );
+          return;
+        }
+
+        const defaultBuyIn = Math.min(walletRecord.balance, Math.max(20000, table.bigBlind * 100));
+        const requestedBuyIn =
+          typeof buyInAmount === 'number' && !Number.isNaN(buyInAmount) && buyInAmount > 0
+            ? buyInAmount
+            : defaultBuyIn;
+
+        const { record: updatedWallet, actualBuyIn } = this.walletManager.buyInToTable(
+          walletRecord.walletId,
+          playerName || walletRecord.name || 'Pemain',
+          requestedBuyIn,
+          false
+        );
+
+        const result = table.sit(
+          socket.id,
+          playerName || updatedWallet.name || 'Pemain',
+          seatIndex,
+          false,
+          actualBuyIn,
+          updatedWallet.walletId
+        );
         if (!result.success) {
+          // Refund buy-in back to wallet since sitting failed
+          const refunded = this.walletManager.cashOutFromTable(
+            updatedWallet.walletId,
+            updatedWallet.name,
+            actualBuyIn,
+            false
+          );
+          socket.emit('wallet:updated', refunded);
           socket.emit('errorAlert', result.error);
         } else {
+          socket.emit('wallet:updated', updatedWallet);
           this.broadcastTableState(roomId);
         }
       }
     );
 
-    // 3. Leave seat
+    // 3. Leave seat (automatically cashes out remaining seat chips back to wallet)
     socket.on('leaveSeat', () => {
       const roomId = this.socketToRoom.get(socket.id);
       if (!roomId) return;
@@ -244,17 +463,57 @@ export class RoomManager {
       }
     );
 
-    // 5. Rebuy chips
-    socket.on('rebuy', () => {
+    // 5. Rebuy / Top-Up chips from Wallet onto Seat
+    socket.on('rebuy', (payload?: { buyInAmount?: number }) => {
       const roomId = this.socketToRoom.get(socket.id);
       if (!roomId) return;
       const table = this.tables.get(roomId);
       if (!table) return;
 
-      const result = table.rebuy(socket.id);
+      const seatedPlayer = table.getSeatedPlayer(socket.id);
+      if (!seatedPlayer) {
+        socket.emit('errorAlert', 'Anda harus duduk di kursi terlebih dahulu.');
+        return;
+      }
+
+      const wId = seatedPlayer.walletId || this.socketToWalletId.get(socket.id);
+      const walletRecord = this.walletManager.getOrCreateWallet(wId, seatedPlayer.name);
+
+      if (walletRecord.balance <= 0) {
+        socket.emit(
+          'errorAlert',
+          'Saldo Dompet Anda Rp 0! Silakan keluar ke Lounge 3D dan isi ulang di Loket Kasir NPC dengan menjawab soal Python.'
+        );
+        return;
+      }
+
+      const requestedAmount =
+        payload && typeof payload.buyInAmount === 'number' && payload.buyInAmount > 0
+          ? payload.buyInAmount
+          : Math.min(walletRecord.balance, 200000);
+
+      const { record: updatedWallet, addedChips } = this.walletManager.topUpTableChips(
+        walletRecord.walletId,
+        seatedPlayer.name,
+        requestedAmount,
+        seatedPlayer.chips,
+        false
+      );
+
+      const result = table.rebuy(socket.id, addedChips);
       if (!result.success) {
+        // Refund back to wallet balance
+        const refunded = this.walletManager.updateBalance(
+          updatedWallet.walletId,
+          seatedPlayer.name,
+          updatedWallet.balance + addedChips,
+          false
+        );
+        this.walletManager.syncTableChips(updatedWallet.walletId, seatedPlayer.name, seatedPlayer.chips, false);
+        socket.emit('wallet:updated', refunded);
         socket.emit('errorAlert', result.error);
       } else {
+        socket.emit('wallet:updated', updatedWallet);
         this.broadcastTableState(roomId);
       }
     });
@@ -288,6 +547,9 @@ export class RoomManager {
       const res = table?.addBot();
       if (res && !res.success) {
         socket.emit('errorAlert', res.error);
+      } else if (res && res.success && res.botWalletId && res.botName && res.botChips) {
+        this.walletManager.buyInToTable(res.botWalletId, res.botName, res.botChips, true);
+        this.io.emit('leaderboard:updated', this.getLeaderboard(15));
       }
     });
 
@@ -397,6 +659,7 @@ export class RoomManager {
 
     const publicState = table.getPublicState();
     this.io.to(roomId).emit('tableState', publicState);
+    this.io.emit('leaderboard:updated', this.getLeaderboard(15));
 
     // Send private cards individually to seated players
     const clients = this.io.sockets.adapter.rooms.get(roomId);

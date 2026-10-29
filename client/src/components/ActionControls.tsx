@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { PlayerPublic } from '../types.js';
 import { formatRupiah } from '../utils/formatters.js';
+import { LiveHandStrength } from '../utils/handStrength.js';
 import { soundEffects } from '../utils/soundEffects.js';
-import { ShieldAlert, ArrowUpRight, Check, Coins } from 'lucide-react';
+import { ShieldAlert, ArrowUpRight, Check, Coins, Sparkles } from 'lucide-react';
 
 interface ActionControlsProps {
   myPlayer: PlayerPublic;
@@ -10,6 +11,7 @@ interface ActionControlsProps {
   minRaise: number;
   pot: number;
   bigBlind: number;
+  liveHandStrength?: LiveHandStrength | null;
   onAction: (action: 'FOLD' | 'CHECK' | 'CALL' | 'RAISE', amount?: number) => void;
 }
 
@@ -19,6 +21,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
   minRaise,
   pot,
   bigBlind,
+  liveHandStrength,
   onAction
 }) => {
   const callCost = currentHighestBet - myPlayer.currentBet;
@@ -66,11 +69,22 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
 
   return (
     <div className="action-console">
+      {/* Live Hand Strength Banner inside Console */}
+      {liveHandStrength && (
+        <div className={`console-hand-banner tier-${liveHandStrength.tier}`}>
+          <div className="console-hand-header">
+            <Sparkles size={11} />
+            <span>Kombinasi Kartu Anda</span>
+          </div>
+          <div className="console-hand-value">{liveHandStrength.label}</div>
+        </div>
+      )}
+
       {/* Raise Slider & Presets */}
       {canRaise && (
         <div className="slider-container">
           <div className="slider-info">
-            <span style={{ color: '#94a3b8', fontWeight: 600 }}>Nominal Taruhan:</span>
+            <span className="slider-info-label">Nominal Taruhan</span>
             <span className="slider-info-val">
               {formatRupiah(raiseAmount)} {isAllInRaise && '(ALL-IN)'}
             </span>
@@ -118,8 +132,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
             <button
               type="button"
               onClick={() => setPreset(maxPossibleBet)}
-              className="btn-preset"
-              style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+              className="btn-preset btn-preset-allin"
             >
               All In
             </button>
@@ -127,12 +140,12 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
         </div>
       )}
 
-      {/* Main Action Buttons */}
+      {/* Main Action Buttons (Vertical Stack on Left) */}
       <div className="action-buttons-row">
         {/* FOLD */}
         <button onClick={handleFold} className="btn-action btn-fold">
           <div className="action-title">
-            <ShieldAlert size={16} />
+            <ShieldAlert size={19} />
             <span>FOLD</span>
           </div>
           <span className="action-sub">Tutup Kartu</span>
@@ -141,7 +154,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
         {/* CHECK / CALL */}
         <button onClick={handleCheckOrCall} className="btn-action btn-check-call">
           <div className="action-title">
-            <Check size={16} />
+            <Check size={19} />
             <span>{canCheck ? 'CHECK' : 'CALL'}</span>
           </div>
           <span className="action-sub">
@@ -156,7 +169,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
           className="btn-action btn-raise"
         >
           <div className="action-title">
-            {currentHighestBet === 0 ? <Coins size={16} /> : <ArrowUpRight size={16} />}
+            {currentHighestBet === 0 ? <Coins size={19} /> : <ArrowUpRight size={19} />}
             <span>{currentHighestBet === 0 ? 'BET' : 'RAISE'}</span>
           </div>
           <span className="action-sub">

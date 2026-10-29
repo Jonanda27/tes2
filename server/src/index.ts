@@ -33,6 +33,11 @@ app.get('/api/lobby-players', (req, res) => {
   res.json(roomManager.getLobbyPlayers());
 });
 
+// API endpoint to get leaderboard (Top Players by Balance)
+app.get('/api/leaderboard', (req, res) => {
+  res.json(roomManager.getLeaderboard(15));
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
