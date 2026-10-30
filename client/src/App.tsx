@@ -1042,58 +1042,6 @@ export const App: React.FC = () => {
             <span className="hidden sm:inline">Berdiri dari Kursi</span>
           </button>
 
-          {/* Quick Jump to Roulette */}
-          <button
-            onClick={() => {
-              setViewMode('roulette');
-              window.history.pushState({}, '', '?view=roulette');
-            }}
-            className="btn-pill btn-pill-gold"
-            title="Pindah ke Meja Roulette Eropa"
-          >
-            <span>🎡</span>
-            <span className="hidden sm:inline">Roulette</span>
-          </button>
-
-          {/* Quick Jump to Slot Machine */}
-          <button
-            onClick={() => {
-              setViewMode('slot');
-              window.history.pushState({}, '', '?view=slot');
-            }}
-            className="btn-pill btn-pill-gold"
-            title="Pindah ke Mesin Slot 777 Jackpot"
-          >
-            <span>🎰</span>
-            <span className="hidden sm:inline">Slot 777</span>
-          </button>
-
-          {/* Quick Jump to Crash Aviator */}
-          <button
-            onClick={() => {
-              setViewMode('crash');
-              window.history.pushState({}, '', '?view=crash');
-            }}
-            className="btn-pill btn-pill-gold"
-            title="Pindah ke Roket Crash Aviator"
-          >
-            <span>🚀</span>
-            <span className="hidden sm:inline">Crash</span>
-          </button>
-
-          {/* Quick Jump to Blackjack 21 */}
-          <button
-            onClick={() => {
-              setViewMode('blackjack');
-              window.history.pushState({}, '', '?view=blackjack');
-            }}
-            className="btn-pill btn-pill-gold"
-            title="Pindah ke Meja Blackjack 21 VIP"
-          >
-            <span>🃏</span>
-            <span className="hidden sm:inline">Blackjack</span>
-          </button>
-
           {/* Return to 3D Lounge Button */}
           <button
             onClick={handleReturnToLounge}
