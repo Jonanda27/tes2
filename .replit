@@ -6,7 +6,7 @@ entrypoint = "server/dist/index.js"
 channel = "stable-24_05"
 
 [deployment]
-run = ["npm", "start"]
+run = ["node", "server/dist/index.js"]
 build = ["npm", "run", "build"]
 deploymentTarget = "cloudrun"
 
