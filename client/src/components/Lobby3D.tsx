@@ -3497,62 +3497,63 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         </div>
       )}
 
-      {/* Floating Active Players in Lounge Panel (Bisa dibuka & ditutup) */}
-      {showPlayersPanel && (
-        <div
-          className="lobby-ui-element animate-fade-in"
-          style={{
-            position: 'absolute',
-            top: '80px',
-            left: '16px',
-            zIndex: 25,
-            background: 'rgba(15, 23, 42, 0.90)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(245, 158, 11, 0.35)',
-            borderRadius: '16px',
-            padding: '12px 14px',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.65)',
-            width: '270px',
-            pointerEvents: 'auto'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <span style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>
-                Pemain di Lounge ({remotePlayersList.length + 1})
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      {/* Floating Active Players in Lounge Panel (Bisa dibuka & ditutup, tidak dihilangkan) */}
+      <div
+        className="lobby-ui-element animate-fade-in"
+        style={{
+          position: 'absolute',
+          top: '80px',
+          left: '16px',
+          zIndex: 25,
+          background: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '16px',
+          padding: showPlayersPanel ? '12px 14px' : '8px 12px',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.65)',
+          width: showPlayersPanel ? '270px' : 'auto',
+          maxWidth: '280px',
+          pointerEvents: 'auto',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: showPlayersPanel ? '8px' : '0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#f8fafc' }}>
+              Pemain di Lounge ({remotePlayersList.length + 1})
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {showPlayersPanel && (
               <span style={{ fontSize: '10px', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '999px' }}>
                 Live 3D
               </span>
-              <button
-                onClick={() => setShowPlayersPanel(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  color: '#94a3b8',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  lineHeight: 1
-                }}
-                title="Tutup Panel Pemain"
-                onMouseEnter={e => (e.currentTarget.style.color = '#ffffff')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#94a3b8')}
-              >
-                ✕
-              </button>
-            </div>
+            )}
+            <button
+              onClick={() => setShowPlayersPanel(prev => !prev)}
+              style={{
+                background: showPlayersPanel ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.45))',
+                border: showPlayersPanel ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #10b981',
+                color: showPlayersPanel ? '#cbd5e1' : '#6ee7b7',
+                borderRadius: '999px',
+                padding: '3px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title={showPlayersPanel ? 'Tutup list pemain' : 'Buka list pemain'}
+            >
+              <span>{showPlayersPanel ? 'Tutup ▲' : 'Buka ▼'}</span>
+            </button>
           </div>
+        </div>
 
+        {showPlayersPanel && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
             {/* Local Player */}
             <div
@@ -3641,36 +3642,38 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
               ))
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Floating Leaderboard (Papan Peringkat Sultan) Panel on Right Side (Bisa dibuka & ditutup) */}
-      {showLeaderboardPanel && (
-        <div
-          className="lobby-ui-element animate-fade-in"
-          style={{
-            position: 'absolute',
-            top: '80px',
-            right: '16px',
-            zIndex: 25,
-            background: 'rgba(15, 23, 42, 0.92)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(245, 158, 11, 0.45)',
-            borderRadius: '16px',
-            padding: '12px 14px',
-            boxShadow: '0 14px 36px rgba(0,0,0,0.75)',
-            width: '295px',
-            pointerEvents: 'auto'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-              <Award size={16} color="#f59e0b" />
-              <span style={{ fontSize: '13px', fontWeight: 900, color: '#fef08a', letterSpacing: '0.02em' }}>
-                Papan Peringkat Sultan
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      {/* Floating Leaderboard (Papan Peringkat Sultan) Panel on Right Side (Bisa dibuka & ditutup, tidak dihilangkan) */}
+      <div
+        className="lobby-ui-element animate-fade-in"
+        style={{
+          position: 'absolute',
+          top: '80px',
+          right: '16px',
+          zIndex: 25,
+          background: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(245, 158, 11, 0.45)',
+          borderRadius: '16px',
+          padding: showLeaderboardPanel ? '12px 14px' : '8px 12px',
+          boxShadow: '0 14px 36px rgba(0,0,0,0.75)',
+          width: showLeaderboardPanel ? '295px' : 'auto',
+          maxWidth: '310px',
+          pointerEvents: 'auto',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: showLeaderboardPanel ? '10px' : '0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <Award size={16} color="#f59e0b" />
+            <span style={{ fontSize: '13px', fontWeight: 900, color: '#fef08a', letterSpacing: '0.02em' }}>
+              Papan Peringkat Sultan
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {showLeaderboardPanel && (
               <span
                 style={{
                   fontSize: '9.5px',
@@ -3684,32 +3687,31 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
               >
                 Real-Time
               </span>
-              <button
-                onClick={() => setShowLeaderboardPanel(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  color: '#94a3b8',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  lineHeight: 1
-                }}
-                title="Tutup Panel Peringkat"
-                onMouseEnter={e => (e.currentTarget.style.color = '#ffffff')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#94a3b8')}
-              >
-                ✕
-              </button>
-            </div>
+            )}
+            <button
+              onClick={() => setShowLeaderboardPanel(prev => !prev)}
+              style={{
+                background: showLeaderboardPanel ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.45))',
+                border: showLeaderboardPanel ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #f59e0b',
+                color: showLeaderboardPanel ? '#cbd5e1' : '#fef08a',
+                borderRadius: '999px',
+                padding: '3px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title={showLeaderboardPanel ? 'Tutup papan peringkat' : 'Buka papan peringkat'}
+            >
+              <span>{showLeaderboardPanel ? 'Tutup ▲' : 'Buka ▼'}</span>
+            </button>
           </div>
+        </div>
 
+        {showLeaderboardPanel && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
             {(() => {
               const activeList = leaderboard.length > 0 ? leaderboard : fetchedLeaderboard;
@@ -3806,8 +3808,8 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
               });
             })()}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Proximity Table Prompt (Appears when character walks near a table) */}
       {nearbyTable && (
