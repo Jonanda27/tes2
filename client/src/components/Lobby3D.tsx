@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import {
+  Settings,
   Users,
   Play,
   Volume2,
@@ -250,6 +251,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const [showPlayersPanel, setShowPlayersPanel] = useState<boolean>(true);
   const [showLeaderboardPanel, setShowLeaderboardPanel] = useState<boolean>(true);
   const [showCashierModal, setShowCashierModal] = useState<boolean>(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState<boolean>(false);
   const [pythonQuiz, setPythonQuiz] = useState<PythonQuizQuestion>(() => generatePythonAdditionQuiz());
   const [quizFeedback, setQuizFeedback] = useState<{ type: 'correct' | 'wrong'; message: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -3027,74 +3029,38 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           </div>
         </div>
 
-        {/* Top Actions: Avatar Customizer, Name, BGM, Quick List */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Avatar Outfit Selector */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(12px)',
-              padding: '6px 14px',
-              borderRadius: '999px',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}
-          >
-            <span style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 700 }}>Jas:</span>
-            {OUTFIT_COLORS.map((outfit, idx) => (
-              <button
-                key={outfit.name}
-                onClick={() => {
-                  setSuitColorIdx(idx);
-                  localStorage.setItem('poker_avatar_outfit', idx.toString());
-                }}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  background: outfit.hex,
-                  border: suitColorIdx === idx ? '2px solid #f59e0b' : '1px solid rgba(255,255,255,0.3)',
-                  transform: suitColorIdx === idx ? 'scale(1.2)' : 'scale(1)',
-                  transition: 'all 0.15s ease',
-                  cursor: 'pointer'
-                }}
-                title={outfit.tag}
-              />
-            ))}
-          </div>
-
-          {/* Persistent Wallet Balance Pill in Lobby Header */}
+        {/* Top Actions: Saldo di Atas & Menu Pengaturan Dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Persistent Wallet Balance Pill (Tetap di Atas Sesuai Request) */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.9), rgba(4, 47, 46, 0.92))',
+              background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.92), rgba(4, 47, 46, 0.95))',
               backdropFilter: 'blur(12px)',
-              padding: '7px 15px',
+              padding: '8px 18px',
               borderRadius: '999px',
               border: '1.5px solid rgba(52, 211, 153, 0.6)',
-              boxShadow: '0 4px 18px rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 4px 18px rgba(16, 185, 129, 0.3)',
               color: '#a7f3d0',
-              fontSize: '13px',
+              fontSize: '13.5px',
               fontWeight: 900
             }}
             title="Saldo Chip Anda (Tersimpan Otomatis)"
           >
             <span>💰 Saldo:</span>
-            <span style={{ color: '#fef08a', fontFamily: 'monospace', fontSize: '14px' }}>
+            <span style={{ color: '#fef08a', fontFamily: 'monospace', fontSize: '15px' }}>
               Rp {walletBalance.toLocaleString('id-ID')}
             </span>
             {walletWins > 0 && (
               <span
                 style={{
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   background: 'rgba(245, 158, 11, 0.25)',
                   border: '1px solid rgba(245, 158, 11, 0.5)',
                   color: '#fde68a',
-                  padding: '1px 7px',
+                  padding: '2px 8px',
                   borderRadius: '999px'
                 }}
               >
@@ -3112,11 +3078,11 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
                 }}
                 style={{
                   marginLeft: '4px',
-                  padding: '3px 9px',
+                  padding: '4px 10px',
                   borderRadius: '999px',
                   background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                   color: '#0f172a',
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   fontWeight: 900,
                   cursor: 'pointer',
                   border: 'none'
@@ -3128,224 +3094,379 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             )}
           </div>
 
-          {/* Player Name Pill */}
-          <button
-            onClick={() => {
-              setNameInput(playerName);
-              setIsEditingName(true);
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(12px)',
-              padding: '8px 16px',
-              borderRadius: '999px',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              color: '#fef08a',
-              fontSize: '13px',
-              fontWeight: 800,
-              cursor: 'pointer'
-            }}
-          >
-            <User size={15} color="#f59e0b" />
-            <span>{playerName}</span>
-            <span style={{ fontSize: '10px', color: '#94a3b8' }}>✎</span>
-          </button>
+          {/* Icon Setting & Menu Tunggal (Klik untuk membuka ke bawah) */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowSettingsMenu(prev => !prev)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: showSettingsMenu
+                  ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(217, 119, 6, 0.5))'
+                  : 'rgba(15, 23, 42, 0.88)',
+                backdropFilter: 'blur(14px)',
+                border: showSettingsMenu ? '1.5px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.18)',
+                padding: '9px 18px',
+                borderRadius: '999px',
+                color: '#fef08a',
+                fontSize: '13px',
+                fontWeight: 800,
+                boxShadow: showSettingsMenu
+                  ? '0 6px 25px rgba(245, 158, 11, 0.45)'
+                  : '0 4px 16px rgba(0,0,0,0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Buka Menu & Pengaturan Lounge"
+            >
+              <Settings size={18} className={showSettingsMenu ? 'animate-spin' : ''} style={{ animationDuration: '6s', color: '#f59e0b' }} />
+              <span className="hidden sm:inline">Menu & Opsi</span>
+              <span style={{ fontSize: '10px', opacity: 0.8, color: '#fef08a' }}>{showSettingsMenu ? '▲' : '▼'}</span>
+            </button>
 
-          {/* Tokyo Drift BGM Toggle */}
-          <button
-            onClick={onToggleBgm}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: isBgmPlaying
-                ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(180, 83, 9, 0.4))'
-                : 'rgba(15, 23, 42, 0.85)',
-              border: isBgmPlaying ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              color: isBgmPlaying ? '#fef08a' : '#94a3b8',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer'
-            }}
-            title="Tokyo Drift - Teriyaki Boyz BGM"
-          >
-            {isBgmPlaying ? <Music size={15} className="animate-pulse" /> : <VolumeX size={15} />}
-            <span className="hidden sm:inline">
-              {isBgmPlaying ? 'Tokyo Drift 🎵' : 'Musik: OFF'}
-            </span>
-          </button>
+            {/* Dropdown Menu yang Muncul ke Bawah */}
+            {showSettingsMenu && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 12px)',
+                  right: 0,
+                  zIndex: 80,
+                  width: '320px',
+                  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.96))',
+                  backdropFilter: 'blur(20px)',
+                  border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                  borderRadius: '20px',
+                  padding: '16px',
+                  boxShadow: '0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(245, 158, 11, 0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}
+              >
+                {/* Header Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Settings size={16} color="#f59e0b" />
+                    <span style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', letterSpacing: '0.02em' }}>
+                      Pengaturan & Game
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowSettingsMenu(false)}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border: 'none',
+                      color: '#94a3b8',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                    title="Tutup Menu"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-          {/* Toggle Tombol Pemain di Lounge */}
-          <button
-            onClick={() => setShowPlayersPanel(prev => !prev)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: showPlayersPanel
-                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.45))'
-                : 'rgba(15, 23, 42, 0.85)',
-              border: showPlayersPanel ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.12)',
-              color: showPlayersPanel ? '#6ee7b7' : '#94a3b8',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12.5px',
-              boxShadow: showPlayersPanel ? '0 4px 15px rgba(16, 185, 129, 0.3)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title="Buka / Tutup Daftar Pemain di Lounge"
-          >
-            <Users size={15} color={showPlayersPanel ? '#10b981' : '#94a3b8'} />
-            <span className="hidden sm:inline">Pemain ({remotePlayersList.length + 1})</span>
-            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showPlayersPanel ? '▲' : '▼'}</span>
-          </button>
+                {/* Section 1: Profil Pemain */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Profil & Jas Karakter
+                  </div>
 
-          {/* Toggle Tombol Papan Peringkat Sultan */}
-          <button
-            onClick={() => setShowLeaderboardPanel(prev => !prev)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: showLeaderboardPanel
-                ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.45))'
-                : 'rgba(15, 23, 42, 0.85)',
-              border: showLeaderboardPanel ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.12)',
-              color: showLeaderboardPanel ? '#fef08a' : '#94a3b8',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12.5px',
-              boxShadow: showLeaderboardPanel ? '0 4px 15px rgba(245, 158, 11, 0.3)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title="Buka / Tutup Papan Peringkat Sultan"
-          >
-            <Award size={15} color={showLeaderboardPanel ? '#f59e0b' : '#94a3b8'} />
-            <span className="hidden sm:inline">Top 10 Sultan</span>
-            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showLeaderboardPanel ? '▲' : '▼'}</span>
-          </button>
+                  {/* Player Name Edit */}
+                  <div
+                    onClick={() => {
+                      setNameInput(playerName);
+                      setIsEditingName(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      cursor: 'pointer'
+                    }}
+                    title="Ganti Nama Anda"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <User size={15} color="#f59e0b" />
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fef08a' }}>{playerName}</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 700 }}>Ganti ✎</span>
+                  </div>
 
-          {/* Quick Action: Main Roulette */}
-          <button
-            onClick={() => onSelectRoulette?.()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.4))',
-              border: '1px solid rgba(251, 191, 36, 0.5)',
-              color: '#fef08a',
-              padding: '8px 13px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12px',
-              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)',
-              cursor: 'pointer'
-            }}
-            title="Buka Meja Roulette Eropa"
-          >
-            <span>🎡</span>
-            <span className="hidden sm:inline">Roulette</span>
-          </button>
+                  {/* Jas Avatar Color Selector */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: '8px 12px',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 700 }}>Warna Jas:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {OUTFIT_COLORS.map((outfit, idx) => (
+                        <button
+                          key={outfit.name}
+                          onClick={() => {
+                            setSuitColorIdx(idx);
+                            localStorage.setItem('poker_avatar_outfit', idx.toString());
+                          }}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            background: outfit.hex,
+                            border: suitColorIdx === idx ? '2px solid #f59e0b' : '1px solid rgba(255,255,255,0.3)',
+                            transform: suitColorIdx === idx ? 'scale(1.2)' : 'scale(1)',
+                            transition: 'all 0.15s ease',
+                            cursor: 'pointer'
+                          }}
+                          title={outfit.tag}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-          {/* Quick Action: Mesin Slot */}
-          <button
-            onClick={() => onSelectSlots?.()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.4))',
-              border: '1px solid rgba(248, 113, 113, 0.5)',
-              color: '#fca5a5',
-              padding: '8px 13px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12px',
-              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)',
-              cursor: 'pointer'
-            }}
-            title="Buka Mesin Slot 777 Jackpot"
-          >
-            <span>🎰</span>
-            <span className="hidden sm:inline">Slot 777</span>
-          </button>
+                {/* Section 2: Audio & Tampilan Panel */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Audio & Tampilan
+                  </div>
 
-          {/* Quick Action: Crash Aviator */}
-          <button
-            onClick={() => onSelectCrash?.()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(194, 65, 12, 0.4))',
-              border: '1px solid rgba(251, 146, 60, 0.5)',
-              color: '#fed7aa',
-              padding: '8px 13px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12px',
-              boxShadow: '0 4px 15px rgba(249, 115, 22, 0.25)',
-              cursor: 'pointer'
-            }}
-            title="Buka Roket Crash Aviator"
-          >
-            <span>🚀</span>
-            <span className="hidden sm:inline">Crash</span>
-          </button>
+                  {/* BGM Tokyo Drift Toggle */}
+                  <button
+                    onClick={onToggleBgm}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: isBgmPlaying
+                        ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(180, 83, 9, 0.35))'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: isBgmPlaying ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      color: isBgmPlaying ? '#fef08a' : '#cbd5e1',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isBgmPlaying ? <Music size={15} color="#f59e0b" className="animate-pulse" /> : <VolumeX size={15} color="#94a3b8" />}
+                      <span>Musik Tokyo Drift</span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: isBgmPlaying ? '#10b981' : '#94a3b8' }}>
+                      {isBgmPlaying ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-          {/* Quick Action: Blackjack 21 */}
-          <button
-            onClick={() => onSelectBlackjack?.()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(4, 120, 87, 0.4))',
-              border: '1px solid rgba(52, 211, 153, 0.5)',
-              color: '#a7f3d0',
-              padding: '8px 13px',
-              borderRadius: '999px',
-              fontWeight: 800,
-              fontSize: '12px',
-              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.25)',
-              cursor: 'pointer'
-            }}
-            title="Buka Meja Blackjack 21 VIP"
-          >
-            <span>🃏</span>
-            <span className="hidden sm:inline">Blackjack</span>
-          </button>
+                  {/* Toggle Panel Pemain */}
+                  <button
+                    onClick={() => setShowPlayersPanel(prev => !prev)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: showPlayersPanel
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: showPlayersPanel ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      color: showPlayersPanel ? '#6ee7b7' : '#cbd5e1',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Users size={15} color={showPlayersPanel ? '#10b981' : '#94a3b8'} />
+                      <span>Panel Pemain ({remotePlayersList.length + 1})</span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: showPlayersPanel ? '#10b981' : '#94a3b8' }}>
+                      {showPlayersPanel ? 'Terbuka' : 'Tertutup'}
+                    </span>
+                  </button>
 
-          {/* Quick Rooms List Modal Toggle */}
-          <button
-            onClick={() => setShowRoomListModal(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#0f172a',
-              padding: '8px 16px',
-              borderRadius: '999px',
-              fontWeight: 900,
-              fontSize: '13px',
-              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)',
-              cursor: 'pointer'
-            }}
-          >
-            <Compass size={15} />
-            <span className="hidden sm:inline">Pilih Meja</span>
-          </button>
+                  {/* Toggle Papan Peringkat Sultan */}
+                  <button
+                    onClick={() => setShowLeaderboardPanel(prev => !prev)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: showLeaderboardPanel
+                        ? 'rgba(245, 158, 11, 0.15)'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: showLeaderboardPanel ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.08)',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      color: showLeaderboardPanel ? '#fef08a' : '#cbd5e1',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Award size={15} color={showLeaderboardPanel ? '#f59e0b' : '#94a3b8'} />
+                      <span>Papan Peringkat Sultan</span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: showLeaderboardPanel ? '#f59e0b' : '#94a3b8' }}>
+                      {showLeaderboardPanel ? 'Terbuka' : 'Tertutup'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Section 3: Akses Cepat Game Casino */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Game Casino & Meja
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false);
+                        onSelectRoulette?.();
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.35))',
+                        border: '1px solid rgba(251, 191, 36, 0.4)',
+                        color: '#fef08a',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>🎡</span>
+                      <span>Roulette</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false);
+                        onSelectSlots?.();
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.35))',
+                        border: '1px solid rgba(248, 113, 113, 0.4)',
+                        color: '#fca5a5',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>🎰</span>
+                      <span>Slot 777</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false);
+                        onSelectCrash?.();
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(194, 65, 12, 0.35))',
+                        border: '1px solid rgba(251, 146, 60, 0.4)',
+                        color: '#fed7aa',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>🚀</span>
+                      <span>Crash Aviator</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false);
+                        onSelectBlackjack?.();
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(4, 120, 87, 0.35))',
+                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                        color: '#a7f3d0',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>🃏</span>
+                      <span>Blackjack</span>
+                    </button>
+                  </div>
+
+                  {/* Tombol Pilih Meja Modal */}
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      setShowRoomListModal(true);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      color: '#0f172a',
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      fontWeight: 900,
+                      fontSize: '13px',
+                      boxShadow: '0 4px 15px rgba(245, 158, 11, 0.35)',
+                      cursor: 'pointer',
+                      border: 'none',
+                      marginTop: '4px'
+                    }}
+                  >
+                    <Compass size={16} />
+                    <span>Pilih Meja Poker Texas Hold'em</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
