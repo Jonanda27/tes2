@@ -62,7 +62,7 @@ app.get('*', (req, res, next) => {
 io.on('connection', (socket) => {
     roomManager.handleSocketConnection(socket);
 });
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || (process.env.REPL_ID ? 5000 : 3050);
 httpServer.listen(PORT, () => {
     console.log(`♠♥♦♣ Server Poker Online Texas Hold'em berjalan di http://localhost:${PORT}`);
 });
