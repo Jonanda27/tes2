@@ -36,11 +36,22 @@ app.get('/api/health', (req, res) => {
 });
 // Serve frontend build if exists
 const clientDistPath = path.resolve(__dirname, '../../client/dist');
-app.use(express.static(clientDistPath));
+app.use(express.static(clientDistPath, {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
         return next();
     }
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
         if (err) {
             res.send('Server Poker Online berjalan. Silakan jalankan client Vite di port 5173 atau build client.');
@@ -51,7 +62,7 @@ app.get('*', (req, res, next) => {
 io.on('connection', (socket) => {
     roomManager.handleSocketConnection(socket);
 });
-const PORT = process.env.PORT || 3050;
+const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
     console.log(`♠♥♦♣ Server Poker Online Texas Hold'em berjalan di http://localhost:${PORT}`);
 });

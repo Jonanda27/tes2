@@ -112,11 +112,11 @@ export const OUTFIT_COLORS = [
   { name: 'Ivory Gold', hex: '#f8fafc', colorVal: 0xf1f5f9, tag: 'VIP White' }
 ];
 
-export const CASHIER_BOOTH_POS: [number, number, number] = [0, 0, -11.0];
-export const ROULETTE_TABLE_POS: [number, number, number] = [20.0, 0, 2.0];
-export const SLOT_MACHINE_POS: [number, number, number] = [-20.0, 0, 2.0];
-export const CRASH_TERMINAL_POS: [number, number, number] = [-15.0, 0, -11.0];
-export const BLACKJACK_TABLE_POS: [number, number, number] = [15.0, 0, -11.0];
+export const CASHIER_BOOTH_POS: [number, number, number] = [0, 0, -11.5];
+export const ROULETTE_TABLE_POS: [number, number, number] = [17.0, 0, -3.0];
+export const SLOT_MACHINE_POS: [number, number, number] = [-17.0, 0, -3.0];
+export const CRASH_TERMINAL_POS: [number, number, number] = [-17.0, 0, 6.5];
+export const BLACKJACK_TABLE_POS: [number, number, number] = [17.0, 0, 6.5];
 
 export interface PythonQuizQuestion {
   code: string;
@@ -243,6 +243,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const [nearbyTable, setNearbyTable] = useState<TableConfig | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
   const [isNearCashier, setIsNearCashier] = useState<boolean>(false);
+  const [isNearRoulette, setIsNearRoulette] = useState<boolean>(false);
+  const [isNearSlots, setIsNearSlots] = useState<boolean>(false);
+  const [isNearCrash, setIsNearCrash] = useState<boolean>(false);
+  const [isNearBlackjack, setIsNearBlackjack] = useState<boolean>(false);
   const [showPlayersPanel, setShowPlayersPanel] = useState<boolean>(true);
   const [showLeaderboardPanel, setShowLeaderboardPanel] = useState<boolean>(true);
   const [showCashierModal, setShowCashierModal] = useState<boolean>(false);
@@ -1005,6 +1009,156 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     return texture;
   };
 
+  // Helper to create Compact European Roulette Floating Pill Texture
+  const createRouletteBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎡', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('European Roulette VIP', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Slot Machine Row Floating Pill Texture
+  const createSlotsBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎰', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Mesin Slot 777 Jackpot', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Crash Aviator Floating Pill Texture
+  const createCrashBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚀', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Crash Aviator Roket', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Blackjack 21 Floating Pill Texture
+  const createBlackjackBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🃏', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Blackjack 21 VIP Table', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+
+
   // Main Three.js Scene Setup
   useEffect(() => {
     const container = mountRef.current;
@@ -1061,10 +1215,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     fillLight.position.set(-15, 12, -10);
     scene.add(fillLight);
 
-    // 5. Room Geometry (Luxury VIP Box Room)
-    const roomWidth = 34;
-    const roomDepth = 26;
-    const roomHeight = 9;
+    // 5. Room Geometry (Grand Luxury VIP Casino & Poker Lounge)
+    const roomWidth = 48;
+    const roomDepth = 32;
+    const roomHeight = 9.5;
 
     // Floor
     const floorTexture = createProceduralCarpetTexture();
@@ -1122,7 +1276,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
     // Wall Pilasters & Gold Trims (Back Wall)
     const pilasterGeo = new THREE.BoxGeometry(0.8, roomHeight, 0.4);
-    [-12, -4, 4, 12].forEach(px => {
+    [-18, -10, -2, 6, 14].forEach(px => {
       const p = new THREE.Mesh(pilasterGeo, borderMat);
       p.position.set(px, roomHeight / 2, -roomDepth / 2 + 0.25);
       p.castShadow = true;
@@ -1132,14 +1286,15 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
     // Wall Sconces with warm point lights
     const sconcePositions = [
-      [-12, 4.5, -roomDepth / 2 + 0.5],
-      [-4, 4.5, -roomDepth / 2 + 0.5],
-      [4, 4.5, -roomDepth / 2 + 0.5],
-      [12, 4.5, -roomDepth / 2 + 0.5],
-      [-roomWidth / 2 + 0.5, 4.5, -5],
-      [-roomWidth / 2 + 0.5, 4.5, 5],
-      [roomWidth / 2 - 0.5, 4.5, -5],
-      [roomWidth / 2 - 0.5, 4.5, 5]
+      [-18, 4.5, -roomDepth / 2 + 0.5],
+      [-10, 4.5, -roomDepth / 2 + 0.5],
+      [-2, 4.5, -roomDepth / 2 + 0.5],
+      [6, 4.5, -roomDepth / 2 + 0.5],
+      [14, 4.5, -roomDepth / 2 + 0.5],
+      [-roomWidth / 2 + 0.5, 4.5, -6],
+      [-roomWidth / 2 + 0.5, 4.5, 6],
+      [roomWidth / 2 - 0.5, 4.5, -6],
+      [roomWidth / 2 - 0.5, 4.5, 6]
     ];
 
     sconcePositions.forEach(([sx, sy, sz]) => {
@@ -1555,6 +1710,380 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
     scene.add(cashierGroup);
 
+    // 6c. Build Grand European Roulette Table at ROULETTE_TABLE_POS [20.0, 0, 2.0]
+    const rouletteGroup = new THREE.Group();
+    rouletteGroup.position.set(...ROULETTE_TABLE_POS);
+    rouletteGroup.name = 'roulette_table';
+
+    // Mahogany Pedestal Table Base
+    const rouletteBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.95, 0.95, 24),
+      new THREE.MeshStandardMaterial({ color: 0x1c0f09, roughness: 0.35, metalness: 0.25 })
+    );
+    rouletteBase.position.y = 0.475;
+    rouletteBase.castShadow = true;
+    rouletteGroup.add(rouletteBase);
+
+    // Oval Green Roulette Felt
+    const rouletteFelt = new THREE.Mesh(
+      new THREE.BoxGeometry(4.8, 0.16, 2.8),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.5, metalness: 0.1 })
+    );
+    rouletteFelt.position.y = 1.0;
+    rouletteFelt.castShadow = true;
+    rouletteFelt.receiveShadow = true;
+    rouletteGroup.add(rouletteFelt);
+
+    // Mahogany Curved Leather Armrest Rim
+    const rouletteRim = new THREE.Mesh(
+      new THREE.BoxGeometry(5.1, 0.18, 3.1),
+      new THREE.MeshStandardMaterial({ color: 0x241208, roughness: 0.25, metalness: 0.3 })
+    );
+    rouletteRim.position.y = 0.95;
+    rouletteGroup.add(rouletteRim);
+
+    // Gold Number Grid on Felt
+    const rouletteGrid = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x047857, roughness: 0.3 })
+    );
+    rouletteGrid.rotation.x = -Math.PI / 2;
+    rouletteGrid.position.set(0.8, 1.09, 0);
+    rouletteGroup.add(rouletteGrid);
+
+    // 3D Roulette Wheel Cylinder
+    const wheelBowl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.85, 0.75, 0.28, 32),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2, metalness: 0.85 })
+    );
+    wheelBowl.position.set(-1.2, 1.14, 0);
+    rouletteGroup.add(wheelBowl);
+
+    // Rotating Wheel Head
+    const wheelInner = new THREE.Group();
+    wheelInner.position.set(-1.2, 1.25, 0);
+    const wheelSpindle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.18, 16),
+      new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.1, metalness: 0.95 })
+    );
+    wheelInner.add(wheelSpindle);
+    const wheelDisc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.68, 0.68, 0.06, 24),
+      new THREE.MeshStandardMaterial({ color: 0x881337, roughness: 0.3, metalness: 0.4 })
+    );
+    wheelInner.add(wheelDisc);
+    rouletteGroup.add(wheelInner);
+    rouletteWheelMeshRef.current = wheelInner;
+
+    // Croupier NPC Clara behind wheel
+    const claraAvatar = createAvatar('Mbak Clara', 1, false);
+    claraAvatar.group.position.set(-1.2, 0, -1.6);
+    claraAvatar.group.rotation.y = 0;
+    rouletteCroupierArmRef.current = claraAvatar.rightArm;
+    rouletteGroup.add(claraAvatar.group);
+
+    // Roulette Spotlight
+    const rouletteSpot = new THREE.SpotLight(0xf59e0b, 2.2);
+    rouletteSpot.position.set(ROULETTE_TABLE_POS[0], 5.5, ROULETTE_TABLE_POS[2] + 1.2);
+    rouletteSpot.target = rouletteGroup;
+    rouletteSpot.angle = 0.65;
+    rouletteSpot.penumbra = 0.45;
+    rouletteSpot.distance = 12;
+    scene.add(rouletteSpot);
+    rouletteSpotlightRef.current = rouletteSpot;
+
+    // Billboard Sprite
+    const rouletteBillboardTex = createRouletteBillboardTexture();
+    const rouletteBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: rouletteBillboardTex, transparent: true })
+    );
+    rouletteBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    rouletteBillboardSprite.position.set(0, 3.55, 0.2);
+    rouletteGroup.add(rouletteBillboardSprite);
+    rouletteBillboardRef.current = rouletteBillboardSprite;
+
+    scene.add(rouletteGroup);
+
+    // 6d. Build 777 Slot Machine Arcade Row at SLOT_MACHINE_POS [-20.0, 0, 2.0]
+    const slotsGroup = new THREE.Group();
+    slotsGroup.position.set(...SLOT_MACHINE_POS);
+    slotsGroup.name = 'slot_machine_row';
+
+    const slotXPositions = [-1.8, 0, 1.8];
+    slotXPositions.forEach((sx, idx) => {
+      const cabinetGroup = new THREE.Group();
+      cabinetGroup.position.set(sx, 0, 0);
+
+      // Main Cabinet Body
+      const cabBody = new THREE.Mesh(
+        new THREE.BoxGeometry(1.3, 2.4, 1.1),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.6 })
+      );
+      cabBody.position.y = 1.2;
+      cabBody.castShadow = true;
+      cabinetGroup.add(cabBody);
+
+      // Gold Trim Edge
+      const cabTrim = new THREE.Mesh(
+        new THREE.BoxGeometry(1.36, 0.08, 1.16),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.85 })
+      );
+      cabTrim.position.y = 2.42;
+      cabinetGroup.add(cabTrim);
+
+      // Neon Top Marquee ("777")
+      const marquee = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.5, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.8 })
+      );
+      marquee.position.set(0, 2.15, 0.5);
+      cabinetGroup.add(marquee);
+
+      // Glass Reel Display Screen
+      const screenDisplay = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.75, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.1 })
+      );
+      screenDisplay.position.set(0, 1.45, 0.53);
+      cabinetGroup.add(screenDisplay);
+
+      // Pull Lever on right side
+      const leverBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8),
+        new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9 })
+      );
+      leverBase.position.set(0.72, 1.45, 0.15);
+      leverBase.rotation.z = -0.35;
+      cabinetGroup.add(leverBase);
+
+      const leverKnob = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 })
+      );
+      leverKnob.position.set(0.82, 1.62, 0.15);
+      cabinetGroup.add(leverKnob);
+
+      slotsGroup.add(cabinetGroup);
+    });
+
+    // NPC Budi in front of center machine
+    const budiAvatar = createAvatar('Budi', 3, false);
+    budiAvatar.group.position.set(0, 0, 1.55);
+    budiAvatar.group.rotation.y = Math.PI;
+    budiAvatar.rightArm.rotation.x = -1.1;
+    slotsGroup.add(budiAvatar.group);
+
+    // Slots Spotlight
+    const slotsSpot = new THREE.SpotLight(0xef4444, 2.2);
+    slotsSpot.position.set(SLOT_MACHINE_POS[0], 5.5, SLOT_MACHINE_POS[2] + 1.2);
+    slotsSpot.target = slotsGroup;
+    slotsSpot.angle = 0.65;
+    slotsSpot.penumbra = 0.45;
+    slotsSpot.distance = 12;
+    scene.add(slotsSpot);
+    slotsSpotlightRef.current = slotsSpot;
+
+    // Billboard Sprite
+    const slotsBillboardTex = createSlotsBillboardTexture();
+    const slotsBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: slotsBillboardTex, transparent: true })
+    );
+    slotsBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    slotsBillboardSprite.position.set(0, 3.65, 0.3);
+    slotsGroup.add(slotsBillboardSprite);
+    slotsBillboardRef.current = slotsBillboardSprite;
+
+    scene.add(slotsGroup);
+
+    // 6e. Build Crash Aviator Launchpad Terminal at CRASH_TERMINAL_POS [-15.0, 0, -11.0]
+    const crashGroup = new THREE.Group();
+    crashGroup.position.set(...CRASH_TERMINAL_POS);
+    crashGroup.name = 'crash_terminal';
+
+    // Octagonal Launchpad Pedestal Base
+    const launchpadBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.2, 2.4, 0.22, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.7 })
+    );
+    launchpadBase.position.y = 0.11;
+    launchpadBase.receiveShadow = true;
+    crashGroup.add(launchpadBase);
+
+    // Runway Glowing Ring
+    const runwayRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.6, 1.9, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        emissive: 0xf97316,
+        emissiveIntensity: 0.8,
+        side: THREE.DoubleSide
+      })
+    );
+    runwayRing.rotation.x = -Math.PI / 2;
+    runwayRing.position.y = 0.23;
+    crashGroup.add(runwayRing);
+
+    // Floating 3D Rocket Group
+    const rocketMeshGroup = new THREE.Group();
+    rocketMeshGroup.position.set(0, 1.35, 0);
+
+    // Fuselage (Body)
+    const rocketBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.38, 1.2, 24),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.5 })
+    );
+    rocketMeshGroup.add(rocketBody);
+
+    // Nose Cone
+    const rocketNose = new THREE.Mesh(
+      new THREE.ConeGeometry(0.3, 0.65, 24),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2, metalness: 0.6 })
+    );
+    rocketNose.position.y = 0.92;
+    rocketMeshGroup.add(rocketNose);
+
+    // Cockpit Window (Cyan Visor)
+    const rocketVisor = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.8 })
+    );
+    rocketVisor.position.set(0, 0.35, 0.24);
+    rocketVisor.scale.set(1, 1.2, 0.8);
+    rocketMeshGroup.add(rocketVisor);
+
+    // 3 Aerodynamic Fins
+    for (let f = 0; f < 3; f++) {
+      const finAngle = (f / 3) * Math.PI * 2;
+      const fin = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.5, 0.4),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.5 })
+      );
+      fin.position.set(Math.cos(finAngle) * 0.38, -0.42, Math.sin(finAngle) * 0.38);
+      fin.rotation.y = -finAngle;
+      rocketMeshGroup.add(fin);
+    }
+
+    // Exhaust Thruster Plume Flame
+    const thrusterFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.24, 0.6, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        emissive: 0xfbbf24,
+        emissiveIntensity: 1.2,
+        roughness: 0.1
+      })
+    );
+    thrusterFlame.position.y = -0.85;
+    thrusterFlame.rotation.x = Math.PI;
+    rocketMeshGroup.add(thrusterFlame);
+
+    crashGroup.add(rocketMeshGroup);
+    crashRocketMeshRef.current = rocketMeshGroup;
+
+    // Crash Spotlight
+    const crashSpot = new THREE.SpotLight(0xf97316, 2.5);
+    crashSpot.position.set(CRASH_TERMINAL_POS[0], 5.5, CRASH_TERMINAL_POS[2] + 1.5);
+    crashSpot.target = crashGroup;
+    crashSpot.angle = 0.65;
+    crashSpot.penumbra = 0.45;
+    crashSpot.distance = 12;
+    scene.add(crashSpot);
+    crashSpotlightRef.current = crashSpot;
+
+    // Billboard Sprite
+    const crashBillboardTex = createCrashBillboardTexture();
+    const crashBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: crashBillboardTex, transparent: true })
+    );
+    crashBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    crashBillboardSprite.position.set(0, 3.65, 0.2);
+    crashGroup.add(crashBillboardSprite);
+    crashBillboardRef.current = crashBillboardSprite;
+
+    scene.add(crashGroup);
+
+    // 6f. Build VIP Blackjack 21 Table at BLACKJACK_TABLE_POS [15.0, 0, -11.0]
+    const blackjackGroup = new THREE.Group();
+    blackjackGroup.position.set(...BLACKJACK_TABLE_POS);
+    blackjackGroup.name = 'blackjack_table';
+
+    // Pedestal Base
+    const bjBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.95, 0.95, 24),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.35, metalness: 0.3 })
+    );
+    bjBase.position.y = 0.475;
+    bjBase.castShadow = true;
+    blackjackGroup.add(bjBase);
+
+    // Semicircular Green Felt
+    const bjFelt = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.3, 0.16, 32, 1, false, 0, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.48, metalness: 0.12 })
+    );
+    bjFelt.position.set(0, 1.0, 0);
+    bjFelt.rotation.y = Math.PI;
+    bjFelt.castShadow = true;
+    bjFelt.receiveShadow = true;
+    blackjackGroup.add(bjFelt);
+
+    // Padded Leather Rail
+    const bjRail = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.45, 2.45, 0.18, 32, 1, false, 0, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x241208, roughness: 0.25, metalness: 0.4 })
+    );
+    bjRail.position.set(0, 0.95, 0);
+    bjRail.rotation.y = Math.PI;
+    blackjackGroup.add(bjRail);
+
+    // Card Dealing Shoe on felt
+    const bjShoe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.2, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2, metalness: 0.85 })
+    );
+    bjShoe.position.set(1.1, 1.15, -0.4);
+    bjShoe.rotation.y = -0.4;
+    blackjackGroup.add(bjShoe);
+
+    // Chip Tray
+    const bjChipTray = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.12, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.3, metalness: 0.6 })
+    );
+    bjChipTray.position.set(0, 1.12, -0.7);
+    blackjackGroup.add(bjChipTray);
+
+    // Dealer Roy NPC behind table
+    const royAvatar = createAvatar('Dealer Roy', 0, false);
+    royAvatar.group.position.set(0, 0, -1.55);
+    royAvatar.group.rotation.y = 0;
+    blackjackDealerArmRef.current = royAvatar.rightArm;
+    blackjackGroup.add(royAvatar.group);
+
+    // Blackjack Spotlight
+    const bjSpot = new THREE.SpotLight(0x10b981, 2.5);
+    bjSpot.position.set(BLACKJACK_TABLE_POS[0], 5.5, BLACKJACK_TABLE_POS[2] + 1.5);
+    bjSpot.target = blackjackGroup;
+    bjSpot.angle = 0.65;
+    bjSpot.penumbra = 0.45;
+    bjSpot.distance = 12;
+    scene.add(bjSpot);
+    blackjackSpotlightRef.current = bjSpot;
+
+    // Billboard Sprite
+    const bjBillboardTex = createBlackjackBillboardTexture();
+    const bjBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: bjBillboardTex, transparent: true })
+    );
+    bjBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    bjBillboardSprite.position.set(0, 3.65, 0.2);
+    blackjackGroup.add(bjBillboardSprite);
+    blackjackBillboardRef.current = bjBillboardSprite;
+
+    scene.add(blackjackGroup);
+
+
+
     // 7. Click Destination Marker (Expanding Gold Pulse Ring)
     const markerGeo = new THREE.RingGeometry(0.35, 0.5, 32);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0 });
@@ -1658,6 +2187,58 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       mouseVector.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouseVector, camera);
+
+      // Check click on Roulette table
+      const rouletteObj = scene.getObjectByName('roulette_table');
+      if (rouletteObj && raycaster.intersectObjects(rouletteObj.children, true).length > 0) {
+        destinationRef.current = { x: ROULETTE_TABLE_POS[0], z: ROULETTE_TABLE_POS[2] + 2.8 };
+        if (isNearRouletteRef.current) {
+          soundEffects.playEnterTable();
+          onSelectRoulette?.();
+        } else {
+          showLoungeToast('🎡 Berjalan menuju Meja Roulette Eropa...');
+        }
+        return;
+      }
+
+      // Check click on Slot Machine arcade row
+      const slotsObj = scene.getObjectByName('slot_machine_row');
+      if (slotsObj && raycaster.intersectObjects(slotsObj.children, true).length > 0) {
+        destinationRef.current = { x: SLOT_MACHINE_POS[0], z: SLOT_MACHINE_POS[2] + 2.8 };
+        if (isNearSlotsRef.current) {
+          soundEffects.playEnterTable();
+          onSelectSlots?.();
+        } else {
+          showLoungeToast('🎰 Berjalan menuju Mesin Slot 777 Jackpot...');
+        }
+        return;
+      }
+
+      // Check click on Crash Terminal
+      const crashObj = scene.getObjectByName('crash_terminal');
+      if (crashObj && raycaster.intersectObjects(crashObj.children, true).length > 0) {
+        destinationRef.current = { x: CRASH_TERMINAL_POS[0], z: CRASH_TERMINAL_POS[2] + 2.8 };
+        if (isNearCrashRef.current) {
+          soundEffects.playEnterTable();
+          onSelectCrash?.();
+        } else {
+          showLoungeToast('🚀 Berjalan menuju Crash Aviator Launchpad...');
+        }
+        return;
+      }
+
+      // Check click on Blackjack table
+      const bjObj = scene.getObjectByName('blackjack_table');
+      if (bjObj && raycaster.intersectObjects(bjObj.children, true).length > 0) {
+        destinationRef.current = { x: BLACKJACK_TABLE_POS[0], z: BLACKJACK_TABLE_POS[2] + 2.8 };
+        if (isNearBlackjackRef.current) {
+          soundEffects.playEnterTable();
+          onSelectBlackjack?.();
+        } else {
+          showLoungeToast('🃏 Berjalan menuju Meja Blackjack 21 VIP...');
+        }
+        return;
+      }
 
       // Check click on Cashier Booth (Loket Isi Ulang Chip NPC)
       const cashierObj = scene.getObjectByName('cashier_booth');
@@ -1804,9 +2385,9 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         }
       }
 
-      // Boundaries (Stay inside luxury VIP room)
-      playerPosRef.current.x = Math.max(-15.5, Math.min(15.5, playerPosRef.current.x));
-      playerPosRef.current.z = Math.max(-11.5, Math.min(11.5, playerPosRef.current.z));
+      // Boundaries (Stay inside spacious VIP lounge)
+      playerPosRef.current.x = Math.max(-21.5, Math.min(21.5, playerPosRef.current.x));
+      playerPosRef.current.z = Math.max(-14.0, Math.min(14.0, playerPosRef.current.z));
 
       // Simple Table Collision check (push away from table centers)
       CASINO_TABLES.forEach(t => {
@@ -1831,6 +2412,58 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           const push = (cMinRadius - cdist) / cdist;
           playerPosRef.current.x += cdx * push;
           playerPosRef.current.z += cdz * push;
+        }
+      }
+
+      // Roulette Table Collision check
+      {
+        const rdx = playerPosRef.current.x - ROULETTE_TABLE_POS[0];
+        const rdz = playerPosRef.current.z - ROULETTE_TABLE_POS[2];
+        const rdist = Math.hypot(rdx, rdz);
+        const rMinRadius = 2.4;
+        if (rdist < rMinRadius && rdist > 0.001) {
+          const push = (rMinRadius - rdist) / rdist;
+          playerPosRef.current.x += rdx * push;
+          playerPosRef.current.z += rdz * push;
+        }
+      }
+
+      // Slot Machines Collision check
+      {
+        const sdx = playerPosRef.current.x - SLOT_MACHINE_POS[0];
+        const sdz = playerPosRef.current.z - SLOT_MACHINE_POS[2];
+        const sdist = Math.hypot(sdx, sdz);
+        const sMinRadius = 2.4;
+        if (sdist < sMinRadius && sdist > 0.001) {
+          const push = (sMinRadius - sdist) / sdist;
+          playerPosRef.current.x += sdx * push;
+          playerPosRef.current.z += sdz * push;
+        }
+      }
+
+      // Crash Terminal Collision check
+      {
+        const ctdx = playerPosRef.current.x - CRASH_TERMINAL_POS[0];
+        const ctdz = playerPosRef.current.z - CRASH_TERMINAL_POS[2];
+        const ctDist = Math.hypot(ctdx, ctdz);
+        const ctMinRadius = 2.2;
+        if (ctDist < ctMinRadius && ctDist > 0.001) {
+          const push = (ctMinRadius - ctDist) / ctDist;
+          playerPosRef.current.x += ctdx * push;
+          playerPosRef.current.z += ctdz * push;
+        }
+      }
+
+      // Blackjack Table Collision check
+      {
+        const bjdx = playerPosRef.current.x - BLACKJACK_TABLE_POS[0];
+        const bjdz = playerPosRef.current.z - BLACKJACK_TABLE_POS[2];
+        const bjDist = Math.hypot(bjdx, bjdz);
+        const bjMinRadius = 2.4;
+        if (bjDist < bjMinRadius && bjDist > 0.001) {
+          const push = (bjMinRadius - bjDist) / bjDist;
+          playerPosRef.current.x += bjdx * push;
+          playerPosRef.current.z += bjdz * push;
         }
       }
 
@@ -2004,6 +2637,109 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         cashierNpcBodyRef.current.position.y = 1.35 + Math.sin(time * 0.003) * 0.025;
       }
 
+      // Proximity Detection & Animation for Grand European Roulette Table
+      const rouletteDist = Math.hypot(
+        playerPosRef.current.x - ROULETTE_TABLE_POS[0],
+        playerPosRef.current.z - ROULETTE_TABLE_POS[2]
+      );
+      const nearRoulette = rouletteDist < 4.8 && !closest && !nearCashier;
+      isNearRouletteRef.current = nearRoulette;
+      setIsNearRoulette(nearRoulette);
+
+      if (rouletteSpotlightRef.current) {
+        rouletteSpotlightRef.current.intensity = nearRoulette ? 3.4 : 2.2;
+      }
+      if (rouletteBillboardRef.current) {
+        if (nearRoulette) {
+          rouletteBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          rouletteBillboardRef.current.position.y = 3.65 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          rouletteBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          rouletteBillboardRef.current.position.y = 3.55;
+        }
+      }
+      if (rouletteWheelMeshRef.current) {
+        rouletteWheelMeshRef.current.rotation.y += delta * 0.45;
+      }
+      if (rouletteCroupierArmRef.current) {
+        rouletteCroupierArmRef.current.rotation.x = -0.55 + Math.sin(time * 0.0025) * 0.2;
+      }
+
+      // Proximity Detection & Animation for Slot Machine Arcade Zone
+      const slotsDist = Math.hypot(
+        playerPosRef.current.x - SLOT_MACHINE_POS[0],
+        playerPosRef.current.z - SLOT_MACHINE_POS[2]
+      );
+      const nearSlots = slotsDist < 4.8 && !closest && !nearCashier && !nearRoulette;
+      isNearSlotsRef.current = nearSlots;
+      setIsNearSlots(nearSlots);
+
+      if (slotsSpotlightRef.current) {
+        slotsSpotlightRef.current.intensity = nearSlots ? 3.4 : 2.2;
+      }
+      if (slotsBillboardRef.current) {
+        if (nearSlots) {
+          slotsBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          slotsBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          slotsBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          slotsBillboardRef.current.position.y = 3.65;
+        }
+      }
+
+      // Proximity Detection & Animation for Crash Aviator Terminal
+      const crashDist = Math.hypot(
+        playerPosRef.current.x - CRASH_TERMINAL_POS[0],
+        playerPosRef.current.z - CRASH_TERMINAL_POS[2]
+      );
+      const nearCrash = crashDist < 4.8 && !closest && !nearCashier && !nearRoulette && !nearSlots;
+      isNearCrashRef.current = nearCrash;
+      setIsNearCrash(nearCrash);
+
+      if (crashSpotlightRef.current) {
+        crashSpotlightRef.current.intensity = nearCrash ? 3.6 : 2.5;
+      }
+      if (crashBillboardRef.current) {
+        if (nearCrash) {
+          crashBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          crashBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          crashBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          crashBillboardRef.current.position.y = 3.65;
+        }
+      }
+      if (crashRocketMeshRef.current) {
+        crashRocketMeshRef.current.rotation.y += delta * 0.8;
+        crashRocketMeshRef.current.position.y = 1.35 + Math.sin(time * 0.003) * 0.08;
+      }
+
+      // Proximity Detection & Animation for VIP Blackjack 21 Table
+      const bjDist = Math.hypot(
+        playerPosRef.current.x - BLACKJACK_TABLE_POS[0],
+        playerPosRef.current.z - BLACKJACK_TABLE_POS[2]
+      );
+      const nearBlackjack = bjDist < 4.8 && !closest && !nearCashier && !nearRoulette && !nearSlots && !nearCrash;
+      isNearBlackjackRef.current = nearBlackjack;
+      setIsNearBlackjack(nearBlackjack);
+
+      if (blackjackSpotlightRef.current) {
+        blackjackSpotlightRef.current.intensity = nearBlackjack ? 3.6 : 2.5;
+      }
+      if (blackjackBillboardRef.current) {
+        if (nearBlackjack) {
+          blackjackBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          blackjackBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          blackjackBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          blackjackBillboardRef.current.position.y = 3.65;
+        }
+      }
+      if (blackjackDealerArmRef.current) {
+        blackjackDealerArmRef.current.rotation.x = -0.45 + Math.sin(time * 0.002) * 0.15;
+      }
+
+
+
       // Smooth Third-Person Camera Follow
       if (cameraRef.current && !isTransitioning) {
         const targetCamX = playerPosRef.current.x * 0.45;
@@ -2145,13 +2881,33 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           e.preventDefault();
           e.stopPropagation();
           handleOpenCashierModal();
+        } else if (isNearRoulette && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectRoulette?.();
+        } else if (isNearSlots && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectSlots?.();
+        } else if (isNearCrash && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectCrash?.();
+        } else if (isNearBlackjack && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectBlackjack?.();
         }
       }
     };
 
     window.addEventListener('keydown', handleGlobalKey, true);
     return () => window.removeEventListener('keydown', handleGlobalKey, true);
-  }, [nearbyTable, isNearCashier, isTransitioning, showCashierModal, handleOpenCashierModal]);
+  }, [nearbyTable, isNearCashier, isNearRoulette, isNearSlots, isNearCrash, isNearBlackjack, isTransitioning, showCashierModal, handleOpenCashierModal, onSelectRoulette, onSelectSlots, onSelectCrash, onSelectBlackjack]);
 
   // Virtual joystick touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -2448,7 +3204,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           >
             <Users size={15} color={showPlayersPanel ? '#10b981' : '#94a3b8'} />
             <span className="hidden sm:inline">Pemain ({remotePlayersList.length + 1})</span>
-            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showPlayersPanel ? '✕' : '▼'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showPlayersPanel ? '▲' : '▼'}</span>
           </button>
 
           {/* Toggle Tombol Papan Peringkat Sultan */}
@@ -2475,7 +3231,99 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           >
             <Award size={15} color={showLeaderboardPanel ? '#f59e0b' : '#94a3b8'} />
             <span className="hidden sm:inline">Top 10 Sultan</span>
-            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showLeaderboardPanel ? '✕' : '▼'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.8 }}>{showLeaderboardPanel ? '▲' : '▼'}</span>
+          </button>
+
+          {/* Quick Action: Main Roulette */}
+          <button
+            onClick={() => onSelectRoulette?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.4))',
+              border: '1px solid rgba(251, 191, 36, 0.5)',
+              color: '#fef08a',
+              padding: '8px 13px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12px',
+              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Meja Roulette Eropa"
+          >
+            <span>🎡</span>
+            <span className="hidden sm:inline">Roulette</span>
+          </button>
+
+          {/* Quick Action: Mesin Slot */}
+          <button
+            onClick={() => onSelectSlots?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.4))',
+              border: '1px solid rgba(248, 113, 113, 0.5)',
+              color: '#fca5a5',
+              padding: '8px 13px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12px',
+              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Mesin Slot 777 Jackpot"
+          >
+            <span>🎰</span>
+            <span className="hidden sm:inline">Slot 777</span>
+          </button>
+
+          {/* Quick Action: Crash Aviator */}
+          <button
+            onClick={() => onSelectCrash?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(194, 65, 12, 0.4))',
+              border: '1px solid rgba(251, 146, 60, 0.5)',
+              color: '#fed7aa',
+              padding: '8px 13px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12px',
+              boxShadow: '0 4px 15px rgba(249, 115, 22, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Roket Crash Aviator"
+          >
+            <span>🚀</span>
+            <span className="hidden sm:inline">Crash</span>
+          </button>
+
+          {/* Quick Action: Blackjack 21 */}
+          <button
+            onClick={() => onSelectBlackjack?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(4, 120, 87, 0.4))',
+              border: '1px solid rgba(52, 211, 153, 0.5)',
+              color: '#a7f3d0',
+              padding: '8px 13px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12px',
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Meja Blackjack 21 VIP"
+          >
+            <span>🃏</span>
+            <span className="hidden sm:inline">Blackjack</span>
           </button>
 
           {/* Quick Rooms List Modal Toggle */}
