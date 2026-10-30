@@ -179,14 +179,14 @@ input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 28px 14px 275px;
+  padding: 24px 20px 14px;
   position: relative;
   height: calc(100vh - 58px);
   overflow: hidden;
 }
 
 .table-outer-container {
-  width: min(calc(100vw - 315px), 1080px);
+  width: min(calc(100vw - 60px), 1160px);
   height: min(72vh, 575px);
   min-height: 400px;
   position: relative;
@@ -543,6 +543,95 @@ input {
   z-index: 15;
 }
 
+/* Showdown Winning 5-Card Gold Glow & Animation */
+.card-winner-gold {
+  border: 2.5px solid #fbbf24 !important;
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.95), 0 0 45px rgba(245, 158, 11, 0.65) !important;
+  transform: translateY(-8px) scale(1.12) !important;
+  z-index: 25 !important;
+  animation: goldCardPulse 1.4s infinite ease-in-out !important;
+}
+
+@keyframes goldCardPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 40px rgba(245, 158, 11, 0.5);
+    transform: translateY(-8px) scale(1.12);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(253, 224, 71, 1), 0 0 60px rgba(245, 158, 11, 0.85);
+    transform: translateY(-10px) scale(1.15);
+  }
+}
+
+.card-dimmed {
+  opacity: 0.38 !important;
+  filter: grayscale(65%) contrast(0.85) !important;
+  transform: scale(0.96) !important;
+  transition: all 0.4s ease !important;
+}
+
+.winner-card-pill {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  color: #0f172a;
+  font-size: 8.5px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  z-index: 30;
+  letter-spacing: 0.04em;
+  border: 1px solid #fef08a;
+  animation: bounceSubtle 1.2s infinite ease-in-out;
+}
+
+/* ================= Flying Chips Animation ================= */
+.flying-chip-item {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7), 0 0 10px rgba(245, 158, 11, 0.5);
+  animation-name: flyChipParticle;
+  animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+  animation-fill-mode: forwards;
+  will-change: top, left, transform, opacity;
+  z-index: 45;
+}
+
+@keyframes flyChipParticle {
+  0% {
+    top: var(--from-top);
+    left: var(--from-left);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(calc(-50% + (var(--scatter-x) * 0.4)), calc(-50% - 24px + (var(--scatter-y) * 0.4))) scale(1.2) rotate(60deg);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--scatter-x)), calc(-50% - 10px + var(--scatter-y))) scale(1.05) rotate(calc(var(--rot-deg) * 0.75));
+  }
+  100% {
+    top: var(--to-top);
+    left: var(--to-left);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7) rotate(var(--rot-deg));
+  }
+}
+
 .card-corner {
   display: flex;
   flex-direction: column;
@@ -720,9 +809,23 @@ input {
 }
 
 .player-capsule.is-winner {
-  border-color: var(--gold);
-  background: rgba(45, 26, 11, 0.95);
-  box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+  border-color: #fbbf24;
+  background: linear-gradient(180deg, rgba(45, 26, 11, 0.98) 0%, rgba(20, 14, 8, 0.98) 100%);
+  box-shadow: 0 0 35px rgba(251, 191, 36, 0.85), 0 0 65px rgba(245, 158, 11, 0.5);
+  transform: scale(1.08);
+  animation: winnerCapsuleGlow 1.5s infinite ease-in-out;
+  z-index: 25;
+}
+
+@keyframes winnerCapsuleGlow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.7), 0 0 50px rgba(245, 158, 11, 0.4);
+    transform: scale(1.08);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(253, 224, 71, 1), 0 0 80px rgba(245, 158, 11, 0.8);
+    transform: scale(1.12);
+  }
 }
 
 .player-capsule.folded {
@@ -1228,7 +1331,8 @@ input {
 }
 
 /* ================= Modal ================= */
-.modal-overlay {
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.82);
@@ -1237,7 +1341,7 @@ input {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  z-index: 50;
+  z-index: 100;
 }
 
 .modal-card {
@@ -2004,5 +2108,31 @@ input {
   color: #fef08a;
   box-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
 }
+
+/* ================= Slot Machine Keyframes ================= */
+@keyframes reelBlurSpin {
+  0% {
+    transform: translateY(-60px);
+  }
+  100% {
+    transform: translateY(60px);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.6) translateY(18px);
+    opacity: 0.4;
+  }
+  70% {
+    transform: scale(1.15) translateY(-3px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
 
 

@@ -21,6 +21,7 @@ interface PlayerSeatProps {
   isBigBlind: boolean;
   isWinner: boolean;
   winningHandName?: string;
+  winningCards?: Card[];
   liveHandStrength?: LiveHandStrength | null;
   tipEffect?: { type: 'sent' | 'received'; amount: number; phrase?: string } | null;
   isSpeaking?: boolean;
@@ -45,6 +46,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   isBigBlind,
   isWinner,
   winningHandName,
+  winningCards,
   liveHandStrength,
   tipEffect,
   isSpeaking,
@@ -150,6 +152,20 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
                 stage !== 'SHOWDOWN' &&
                 Boolean(liveHandStrength && liveHandStrength.category >= 1 && isCardInList(c, liveHandStrength.matchingCards));
 
+              const isWinnerGold = Boolean(
+                isWinner &&
+                stage === 'SHOWDOWN' &&
+                c &&
+                winningCards &&
+                isCardInList(c, winningCards)
+              );
+
+              const isDimmed = Boolean(
+                stage === 'SHOWDOWN' &&
+                !isWinnerGold &&
+                (!isWinner || (c && winningCards && !isCardInList(c, winningCards)))
+              );
+
               return (
                 <div
                   key={i}
@@ -162,7 +178,9 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
                     card={c}
                     faceDown={c === null}
                     size={isMe ? 'md' : 'sm'}
-                    isHighlighted={isWinner || isComboMatch}
+                    isHighlighted={!isWinnerGold && (isWinner || isComboMatch)}
+                    isWinnerGold={isWinnerGold}
+                    isDimmed={isDimmed}
                   />
                 </div>
               );
@@ -394,15 +412,22 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
           {/* Winning Hand Display */}
           {isWinner && winningHandName && (
             <div
+              className="winner-badge-pill"
               style={{
-                fontSize: '9px',
+                fontSize: '9.5px',
                 fontWeight: 900,
                 color: '#fef08a',
-                marginTop: '2px',
-                textAlign: 'center'
+                marginTop: '3px',
+                textAlign: 'center',
+                textShadow: '0 0 10px rgba(245, 158, 11, 0.8)',
+                letterSpacing: '0.02em',
+                background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.35))',
+                border: '1px solid rgba(251, 191, 36, 0.6)',
+                borderRadius: '8px',
+                padding: '2px 6px'
               }}
             >
-              🏆 {winningHandName}
+              👑 {winningHandName}
             </div>
           )}
         </div>

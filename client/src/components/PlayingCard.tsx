@@ -6,6 +6,8 @@ interface PlayingCardProps {
   card?: Card | null;
   faceDown?: boolean;
   isHighlighted?: boolean;
+  isWinnerGold?: boolean;
+  isDimmed?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -14,6 +16,8 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
   card,
   faceDown = false,
   isHighlighted = false,
+  isWinnerGold = false,
+  isDimmed = false,
   size = 'md',
   className = ''
 }) => {
@@ -25,7 +29,7 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
 
   if (isHidden) {
     return (
-      <div className={`card-unit ${sizeClass} card-face-down ${className}`}>
+      <div className={`card-unit ${sizeClass} card-face-down ${isDimmed ? 'card-dimmed' : ''} ${className}`}>
         <div className="card-back-pattern">
           <span>♠♦♥♣</span>
         </div>
@@ -35,8 +39,14 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
 
   return (
     <div
-      className={`card-unit ${sizeClass} card-face-up ${isHighlighted ? 'card-highlighted' : ''} ${className}`}
+      className={`card-unit ${sizeClass} card-face-up ${
+        isWinnerGold ? 'card-winner-gold' : isHighlighted ? 'card-highlighted' : isDimmed ? 'card-dimmed' : ''
+      } ${className}`}
     >
+      {isWinnerGold && (
+        <span className="winner-card-pill">👑 COMBO</span>
+      )}
+
       {/* Top Left Corner */}
       <div className={`card-corner ${isRed ? 'suit-red' : 'suit-black'}`}>
         <span>{rankStr}</span>

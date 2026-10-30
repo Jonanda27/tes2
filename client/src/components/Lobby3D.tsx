@@ -47,7 +47,7 @@ export const CASINO_TABLES: TableConfig[] = [
     feltColor: 0x0d5c38,
     feltHex: '#0d5c38',
     rimColor: 0x241208,
-    position: [-7.5, 0, -4.5],
+    position: [-6.5, 0, -2.5],
     smallBlind: 1000,
     bigBlind: 2000,
     startingChips: 100000,
@@ -63,7 +63,7 @@ export const CASINO_TABLES: TableConfig[] = [
     feltColor: 0x143c72,
     feltHex: '#143c72',
     rimColor: 0x1b1924,
-    position: [7.5, 0, -4.5],
+    position: [6.5, 0, -2.5],
     smallBlind: 2500,
     bigBlind: 5000,
     startingChips: 250000,
@@ -79,7 +79,7 @@ export const CASINO_TABLES: TableConfig[] = [
     feltColor: 0x7c142c,
     feltHex: '#7c142c',
     rimColor: 0x3d0b14,
-    position: [-7.5, 0, 5.5],
+    position: [-6.5, 0, 6.5],
     smallBlind: 10000,
     bigBlind: 20000,
     startingChips: 1000000,
@@ -95,7 +95,7 @@ export const CASINO_TABLES: TableConfig[] = [
     feltColor: 0x1c1c24,
     feltHex: '#1c1c24',
     rimColor: 0x0f0f14,
-    position: [7.5, 0, 5.5],
+    position: [6.5, 0, 6.5],
     smallBlind: 25000,
     bigBlind: 50000,
     startingChips: 2500000,
@@ -112,7 +112,11 @@ export const OUTFIT_COLORS = [
   { name: 'Ivory Gold', hex: '#f8fafc', colorVal: 0xf1f5f9, tag: 'VIP White' }
 ];
 
-export const CASHIER_BOOTH_POS: [number, number, number] = [0, 0, -9.0];
+export const CASHIER_BOOTH_POS: [number, number, number] = [0, 0, -11.0];
+export const ROULETTE_TABLE_POS: [number, number, number] = [20.0, 0, 2.0];
+export const SLOT_MACHINE_POS: [number, number, number] = [-20.0, 0, 2.0];
+export const CRASH_TERMINAL_POS: [number, number, number] = [-15.0, 0, -11.0];
+export const BLACKJACK_TABLE_POS: [number, number, number] = [15.0, 0, -11.0];
 
 export interface PythonQuizQuestion {
   code: string;
@@ -187,6 +191,10 @@ interface Lobby3DProps {
   onClaimRelief?: () => void;
   onUpdatePlayerName: (name: string) => void;
   onSelectTable: (roomId: string) => void;
+  onSelectRoulette?: () => void;
+  onSelectSlots?: () => void;
+  onSelectCrash?: () => void;
+  onSelectBlackjack?: () => void;
   isBgmPlaying: boolean;
   onToggleBgm: () => void;
   initialTableId?: string;
@@ -219,6 +227,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   onClaimRelief,
   onUpdatePlayerName,
   onSelectTable,
+  onSelectRoulette,
+  onSelectSlots,
+  onSelectCrash,
+  onSelectBlackjack,
   isBgmPlaying,
   onToggleBgm,
   initialTableId
@@ -231,6 +243,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const [nearbyTable, setNearbyTable] = useState<TableConfig | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
   const [isNearCashier, setIsNearCashier] = useState<boolean>(false);
+  const [isNearRoulette, setIsNearRoulette] = useState<boolean>(false);
+  const [isNearSlots, setIsNearSlots] = useState<boolean>(false);
+  const [isNearCrash, setIsNearCrash] = useState<boolean>(false);
+  const [isNearBlackjack, setIsNearBlackjack] = useState<boolean>(false);
   const [showCashierModal, setShowCashierModal] = useState<boolean>(false);
   const [pythonQuiz, setPythonQuiz] = useState<PythonQuizQuestion>(() => generatePythonAdditionQuiz());
   const [quizFeedback, setQuizFeedback] = useState<{ type: 'correct' | 'wrong'; message: string } | null>(null);
@@ -320,6 +336,22 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
   const cashierNpcRightArmRef = useRef<THREE.Group | null>(null);
   const cashierNpcBodyRef = useRef<THREE.Mesh | null>(null);
   const isNearCashierRef = useRef<boolean>(false);
+  const isNearRouletteRef = useRef<boolean>(false);
+  const isNearSlotsRef = useRef<boolean>(false);
+  const isNearCrashRef = useRef<boolean>(false);
+  const isNearBlackjackRef = useRef<boolean>(false);
+  const rouletteSpotlightRef = useRef<THREE.SpotLight | null>(null);
+  const rouletteBillboardRef = useRef<THREE.Sprite | null>(null);
+  const rouletteWheelMeshRef = useRef<THREE.Group | null>(null);
+  const rouletteCroupierArmRef = useRef<THREE.Group | null>(null);
+  const slotsSpotlightRef = useRef<THREE.SpotLight | null>(null);
+  const slotsBillboardRef = useRef<THREE.Sprite | null>(null);
+  const crashSpotlightRef = useRef<THREE.SpotLight | null>(null);
+  const crashBillboardRef = useRef<THREE.Sprite | null>(null);
+  const crashRocketMeshRef = useRef<THREE.Group | null>(null);
+  const blackjackSpotlightRef = useRef<THREE.SpotLight | null>(null);
+  const blackjackBillboardRef = useRef<THREE.Sprite | null>(null);
+  const blackjackDealerArmRef = useRef<THREE.Group | null>(null);
   const isTransitioningRef = useRef<boolean>(false);
   const handleEnterTableRef = useRef<(table: TableConfig) => void>(() => {});
   const handleOpenCashierRef = useRef<() => void>(() => {});

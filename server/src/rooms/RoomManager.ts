@@ -577,6 +577,8 @@ export class RoomManager {
     // 7b. WebRTC Voice Chat Signaling
     socket.on('voice:join', ({ roomId, playerName }: { roomId: string; playerName: string }) => {
       const cleanId = (roomId || 'meja-1').trim().toLowerCase();
+      socket.join(`voice:${cleanId}`);
+
       let roomVoice = this.voiceUsersInRoom.get(cleanId);
       if (!roomVoice) {
         roomVoice = new Map();
@@ -587,14 +589,24 @@ export class RoomManager {
       const existingPeers = Array.from(roomVoice.values()).filter(p => p.socketId !== socket.id);
       roomVoice.set(socket.id, { socketId: socket.id, playerName: playerName || 'Pemain' });
 
-      // Send existing peers to the new participant
+      // Send existing peers list to the new participant
       socket.emit('voice:all-users', { peers: existingPeers });
 
-      // Notify other peers in this room that a new user joined voice
-      socket.to(cleanId).emit('voice:user-joined', { socketId: socket.id, playerName: playerName || 'Pemain' });
+      // Notify other peers in this room directly that a new user joined voice
+      for (const peer of existingPeers) {
+        this.io.to(peer.socketId).emit('voice:user-joined', {
+          socketId: socket.id,
+          playerName: playerName || 'Pemain'
+        });
+      }
+      socket.to(`voice:${cleanId}`).emit('voice:user-joined', {
+        socketId: socket.id,
+        playerName: playerName || 'Pemain'
+      });
     });
 
     socket.on('voice:signal', ({ targetSocketId, signal }: { targetSocketId: string; signal: any }) => {
+      if (!targetSocketId || !signal) return;
       this.io.to(targetSocketId).emit('voice:signal', {
         senderSocketId: socket.id,
         signal
@@ -603,8 +615,23 @@ export class RoomManager {
 
     socket.on('voice:speaking', ({ roomId, isSpeaking }: { roomId: string; isSpeaking: boolean }) => {
       const cleanId = (roomId || 'meja-1').trim().toLowerCase();
-      socket.to(cleanId).emit('voice:speaking-state', {
+      const roomVoice = this.voiceUsersInRoom.get(cleanId);
+      const senderName = roomVoice?.get(socket.id)?.playerName || 'Pemain';
+
+      if (roomVoice) {
+        for (const peer of roomVoice.values()) {
+          if (peer.socketId !== socket.id) {
+            this.io.to(peer.socketId).emit('voice:speaking-state', {
+              socketId: socket.id,
+              playerName: senderName,
+              isSpeaking
+            });
+          }
+        }
+      }
+      socket.to(`voice:${cleanId}`).emit('voice:speaking-state', {
         socketId: socket.id,
+        playerName: senderName,
         isSpeaking
       });
     });
@@ -612,10 +639,14 @@ export class RoomManager {
     socket.on('voice:leave', ({ roomId }: { roomId?: string }) => {
       const targetRoom = (roomId || this.socketToRoom.get(socket.id) || '').trim().toLowerCase();
       if (targetRoom) {
+        socket.leave(`voice:${targetRoom}`);
         const roomVoice = this.voiceUsersInRoom.get(targetRoom);
         if (roomVoice && roomVoice.has(socket.id)) {
           roomVoice.delete(socket.id);
-          socket.to(targetRoom).emit('voice:user-left', { socketId: socket.id });
+          for (const peer of roomVoice.values()) {
+            this.io.to(peer.socketId).emit('voice:user-left', { socketId: socket.id });
+          }
+          socket.to(`voice:${targetRoom}`).emit('voice:user-left', { socketId: socket.id });
         }
       }
     });
@@ -626,7 +657,10 @@ export class RoomManager {
       for (const [rId, roomVoice] of this.voiceUsersInRoom.entries()) {
         if (roomVoice.has(socket.id)) {
           roomVoice.delete(socket.id);
-          socket.to(rId).emit('voice:user-left', { socketId: socket.id });
+          for (const peer of roomVoice.values()) {
+            this.io.to(peer.socketId).emit('voice:user-left', { socketId: socket.id });
+          }
+          socket.to(`voice:${rId}`).emit('voice:user-left', { socketId: socket.id });
         }
       }
 

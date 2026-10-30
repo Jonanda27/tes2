@@ -52,9 +52,19 @@ export const BuyInModal: React.FC<BuyInModalProps> = ({
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-overlay"
       onClick={onClose}
-      style={{ zIndex: 120 }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.82)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        zIndex: 120
+      }}
     >
       <div
         className="modal-card"

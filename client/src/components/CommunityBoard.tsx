@@ -3,7 +3,8 @@ import { Card, PlayerPublic, TableStage, WinnerResult } from '../types.js';
 import { PlayingCard } from './PlayingCard.js';
 import { ChipStack } from './ChipStack.js';
 import { isCardInList } from '../utils/handStrength.js';
-import { Trophy, Clock } from 'lucide-react';
+import { formatRupiah } from '../utils/formatters.js';
+import { Trophy, Clock, Sparkles } from 'lucide-react';
 
 interface CommunityBoardProps {
   communityCards: Card[];
@@ -34,6 +35,12 @@ export const CommunityBoard: React.FC<CommunityBoardProps> = ({
 
   const seatedPlayers = seats.filter((p): p is PlayerPublic => p !== null && !p.isSittingOut && p.chips > 0);
   const readyPlayers = seatedPlayers.filter(p => p.isReady);
+
+  // Collect winning cards during Showdown
+  const winningCards = stage === 'SHOWDOWN' && winners && winners.length > 0
+    ? winners.flatMap(w => w.winningCards || [])
+    : [];
+  const hasWinningCards = winningCards.length > 0;
 
   const getStageLabel = () => {
     if (stage === 'WAITING') {
@@ -85,36 +92,53 @@ export const CommunityBoard: React.FC<CommunityBoardProps> = ({
 
       {/* 5 Community Cards Grid */}
       <div className="cards-container">
-        {slots.map((card, idx) => (
-          <div key={`${idx}-${card ? `${card.suit}-${card.rank}` : 'empty'}`} style={{ position: 'relative' }}>
-            {card ? (
-              <div
-                className="community-card-wrapper"
-                style={{
-                  animationDelay: `${idx < 3 ? idx * 140 : 0}ms`
-                }}
-              >
-                <PlayingCard
-                  card={card}
-                  size="md"
-                  isHighlighted={isCardInList(card, highlightedCards)}
-                />
-              </div>
-            ) : (
-              <div className="card-slot-placeholder">
-                {idx < 3 ? 'FLOP' : idx === 3 ? 'TURN' : 'RIVER'}
-              </div>
-            )}
-          </div>
-        ))}
+        {slots.map((card, idx) => {
+          const isWinnerMatch = stage === 'SHOWDOWN' && hasWinningCards && card && isCardInList(card, winningCards);
+          const isDimmed = stage === 'SHOWDOWN' && hasWinningCards && card && !isWinnerMatch;
+
+          return (
+            <div key={`${idx}-${card ? `${card.suit}-${card.rank}` : 'empty'}`} style={{ position: 'relative' }}>
+              {card ? (
+                <div
+                  className="community-card-wrapper"
+                  style={{
+                    animationDelay: `${idx < 3 ? idx * 140 : 0}ms`
+                  }}
+                >
+                  <PlayingCard
+                    card={card}
+                    size="md"
+                    isWinnerGold={Boolean(isWinnerMatch)}
+                    isDimmed={Boolean(isDimmed)}
+                    isHighlighted={!isWinnerMatch && isCardInList(card, highlightedCards)}
+                  />
+                </div>
+              ) : (
+                <div className="card-slot-placeholder">
+                  {idx < 3 ? 'FLOP' : idx === 3 ? 'TURN' : 'RIVER'}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Winner announcement overlay */}
       {stage === 'SHOWDOWN' && winners && winners.length > 0 && (
         <div className="winner-banner">
-          <Trophy size={18} />
-          <span>
-            {winners.map(w => `${w.playerName} Menang (${w.handName})`).join(' & ')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Trophy size={18} color="#0f172a" />
+            <span style={{ fontSize: '13.5px', fontWeight: 900 }}>
+              {winners.map(w => w.playerName).join(' & ')}
+            </span>
+          </div>
+          <div style={{ height: '14px', width: '1.5px', background: 'rgba(15, 23, 42, 0.3)' }} />
+          <span style={{ fontSize: '12px', fontWeight: 800 }}>
+            {winners.map(w => w.handName).join(' & ')}
+          </span>
+          <div style={{ height: '14px', width: '1.5px', background: 'rgba(15, 23, 42, 0.3)' }} />
+          <span style={{ fontSize: '13px', fontWeight: 900, color: '#064e3b', background: '#fef08a', padding: '2px 9px', borderRadius: '999px', fontFamily: "'JetBrains Mono', monospace" }}>
+            +{formatRupiah(winners.reduce((acc, w) => acc + (w.amount || 0), 0) || pot)}
           </span>
         </div>
       )}

@@ -7,9 +7,14 @@ import { CommunityBoard } from './components/CommunityBoard.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ChatPanel } from './components/ChatPanel.js';
 import { FloatingChatFeed, FloatingChatItem } from './components/FloatingChatFeed.js';
+import { FlyingChipLayer, FlyingChipEvent } from './components/FlyingChipLayer.js';
 import { LobbyModal } from './components/LobbyModal.js';
 import { BuyInModal } from './components/BuyInModal.js';
 import { Lobby3D } from './components/Lobby3D.js';
+import { RouletteGame } from './components/RouletteGame.js';
+import { SlotMachineGame } from './components/SlotMachineGame.js';
+import { CrashGame } from './components/CrashGame.js';
+import { BlackjackGame } from './components/BlackjackGame.js';
 import { soundEffects } from './utils/soundEffects.js';
 import { evaluateLiveHandStrength } from './utils/handStrength.js';
 import { voiceChat, VoiceConnectionState, VoicePeer } from './utils/voiceChat.js';
@@ -95,10 +100,11 @@ export const App: React.FC = () => {
 
   const [leaderboard, setLeaderboard] = useState<WalletRecord[]>([]);
 
-  // View mode: 'lobby' (3D room with character) or 'table' (poker game table)
-  const [viewMode, setViewMode] = useState<'lobby' | 'table'>(() => {
+  // View mode: 'lobby' (3D room with character), 'table' (poker game table), 'roulette' (European Roulette), 'slot' (777 Slot Machine), 'crash' (Aviator Rocket), or 'blackjack' (21 vs Dealer)
+  const [viewMode, setViewMode] = useState<'lobby' | 'table' | 'roulette' | 'slot' | 'crash' | 'blackjack'>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('view') === 'table' ? 'table' : 'lobby';
+    const v = params.get('view');
+    return v === 'table' ? 'table' : v === 'roulette' ? 'roulette' : v === 'slot' ? 'slot' : v === 'crash' ? 'crash' : v === 'blackjack' ? 'blackjack' : 'lobby';
   });
 
   // Voice Chat (On-Mic WebRTC) State
@@ -130,8 +136,15 @@ export const App: React.FC = () => {
   const [isBgmPlaying, setIsBgmPlaying] = useState(soundEffects.isBgmPlaying);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Flying chips animation particles
+  const [flyingChips, setFlyingChips] = useState<FlyingChipEvent[]>([]);
+  const handleFinishFlyingChip = useCallback((id: string) => {
+    setFlyingChips(prev => prev.filter(c => c.id !== id));
+  }, []);
+
   const prevActiveSeatRef = useRef<number | null>(null);
   const prevStageRef = useRef<string | null>(null);
+  const prevBetsRef = useRef<(number | null)[]>([]);
   const viewModeRef = useRef(viewMode);
   const roomIdRef = useRef(roomId);
   const playerNameRef = useRef(playerName);
@@ -232,11 +245,18 @@ export const App: React.FC = () => {
   // Voice Chat Handlers
   const handleToggleMic = async () => {
     if (voiceState === 'disconnected') {
-      showToast('Menghubungkan mikrofon...');
+      showToast('Menghubungkan ke audio meja...');
       const success = await voiceChat.join(roomId, playerName);
       if (success) {
         setIsMicMuted(false);
         showToast('🎙️ Mikrofon aktif! Anda sekarang on-mic.');
+      }
+    } else if (!voiceChat.hasMic()) {
+      showToast('Mengaktifkan mikrofon...');
+      const success = await voiceChat.enableMic();
+      if (success) {
+        setIsMicMuted(false);
+        showToast('🎙️ Mikrofon aktif! Semua pemain di meja sekarang bisa mendengar Anda.');
       }
     } else {
       const muted = voiceChat.toggleMute();
@@ -376,6 +396,9 @@ export const App: React.FC = () => {
     // Emit immediately when entering table or switching room
     joinCurrentTable();
 
+    // Automatically connect to room voice channel so user can hear everyone at the table immediately
+    voiceChat.connect(roomId, playerNameRef.current);
+
     // Fast fallback retry if tableState hasn't loaded or doesn't match target roomId yet
     const retryInterval = setInterval(() => {
       const currentTable = tableStateRef.current;
@@ -387,7 +410,7 @@ export const App: React.FC = () => {
     return () => clearInterval(retryInterval);
   }, [socket, viewMode, roomId]);
 
-  // 2. Audio & Confetti reactive effects
+  // 2. Audio, Flying Chips, & Confetti reactive effects
   useEffect(() => {
     if (!tableState || !socket) return;
 
@@ -403,14 +426,75 @@ export const App: React.FC = () => {
     }
     prevActiveSeatRef.current = tableState.activeSeat;
 
-    // Showdown fanfare & confetti
+    // Bet flying chip animations from player seats towards center pot
+    if (tableState.stage !== 'WAITING' && tableState.stage !== 'SHOWDOWN') {
+      tableState.seats.forEach((seat, idx) => {
+        const curBet = seat?.currentBet || 0;
+        const prevBet = prevBetsRef.current[idx] || 0;
+        if (curBet > prevBet) {
+          const diff = curBet - prevBet;
+          const chipCount = Math.min(5, Math.max(1, Math.ceil(diff / 5000)));
+          setFlyingChips(prev => [
+            ...prev,
+            {
+              id: `bet-${idx}-${Date.now()}-${Math.random()}`,
+              type: 'bet',
+              from: SEAT_COORDINATES[idx],
+              to: { top: '44%', left: '50%' },
+              count: chipCount,
+              color: diff >= 50000 ? 'gold' : 'green'
+            }
+          ]);
+        }
+        prevBetsRef.current[idx] = curBet;
+      });
+    } else {
+      prevBetsRef.current = tableState.seats.map(s => s?.currentBet || 0);
+    }
+
+    // Showdown fanfare, pot splash audio, multi-burst confetti, & pot-to-winner chip cascade
     if (tableState.stage === 'SHOWDOWN' && prevStageRef.current !== 'SHOWDOWN') {
       soundEffects.playWinFanfare();
+      soundEffects.playPotSplash();
+
+      // Multi-stage celebratory confetti
       confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
+        particleCount: 90,
+        spread: 80,
+        origin: { y: 0.55 },
+        colors: ['#f59e0b', '#fbbf24', '#fef08a', '#10b981', '#3b82f6', '#ffffff']
       });
+
+      setTimeout(() => {
+        confetti({
+          particleCount: 50,
+          spread: 110,
+          origin: { y: 0.45 },
+          colors: ['#ffd700', '#f59e0b', '#ffffff']
+        });
+      }, 240);
+
+      // Cascading chips flying from center pot to winner seat(s)
+      if (tableState.winners && tableState.winners.length > 0) {
+        tableState.winners.forEach((winner, wIdx) => {
+          if (winner.seatIndex >= 0 && winner.seatIndex < SEAT_COORDINATES.length) {
+            setTimeout(() => {
+              const chipCount = Math.min(10, Math.max(5, Math.ceil(winner.amount / 15000)));
+              setFlyingChips(prev => [
+                ...prev,
+                {
+                  id: `win-${winner.seatIndex}-${Date.now()}-${Math.random()}`,
+                  type: 'pot-splash',
+                  from: { top: '44%', left: '50%' },
+                  to: SEAT_COORDINATES[winner.seatIndex],
+                  count: chipCount,
+                  color: 'gold'
+                }
+              ]);
+            }, wIdx * 150);
+          }
+        });
+      }
     }
     prevStageRef.current = tableState.stage;
   }, [tableState, socket]);
@@ -638,9 +722,129 @@ export const App: React.FC = () => {
             handleChangeRoom(selectedRoomId);
             setViewMode('table');
           }}
+          onSelectRoulette={() => {
+            setViewMode('roulette');
+            window.history.pushState({}, '', '?view=roulette');
+          }}
+          onSelectSlots={() => {
+            setViewMode('slot');
+            window.history.pushState({}, '', '?view=slot');
+          }}
+          onSelectCrash={() => {
+            setViewMode('crash');
+            window.history.pushState({}, '', '?view=crash');
+          }}
+          onSelectBlackjack={() => {
+            setViewMode('blackjack');
+            window.history.pushState({}, '', '?view=blackjack');
+          }}
           isBgmPlaying={isBgmPlaying}
           onToggleBgm={handleToggleBgm}
           initialTableId={roomId}
+        />
+        {toast && (
+          <div className="toast-popup">
+            {toast}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (viewMode === 'roulette') {
+    return (
+      <div className="flex flex-col min-h-screen relative overflow-hidden">
+        <RouletteGame
+          walletBalance={walletBalance}
+          playerName={playerName}
+          onUpdateBalance={(newBal) => {
+            setWalletBalance(newBal);
+            localStorage.setItem('poker_wallet_balance', String(newBal));
+          }}
+          onClose={() => {
+            setViewMode('lobby');
+            window.history.pushState({}, '', `?view=lobby&room=${roomId}`);
+            showToast('Kembali ke Ruangan Lounge 3D');
+          }}
+          isBgmPlaying={isBgmPlaying}
+          onToggleBgm={handleToggleBgm}
+        />
+        {toast && (
+          <div className="toast-popup">
+            {toast}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (viewMode === 'slot') {
+    return (
+      <div className="flex flex-col min-h-screen relative overflow-hidden">
+        <SlotMachineGame
+          walletBalance={walletBalance}
+          playerName={playerName}
+          onUpdateBalance={(newBal) => {
+            setWalletBalance(newBal);
+            localStorage.setItem('poker_wallet_balance', String(newBal));
+          }}
+          onClose={() => {
+            setViewMode('lobby');
+            window.history.pushState({}, '', `?view=lobby&room=${roomId}`);
+            showToast('Kembali ke Ruangan Lounge 3D');
+          }}
+          isBgmPlaying={isBgmPlaying}
+          onToggleBgm={handleToggleBgm}
+        />
+        {toast && (
+          <div className="toast-popup">
+            {toast}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (viewMode === 'crash') {
+    return (
+      <div className="flex flex-col min-h-screen relative overflow-hidden">
+        <CrashGame
+          walletBalance={walletBalance}
+          playerName={playerName}
+          onUpdateWallet={(newBal) => {
+            setWalletBalance(newBal);
+            localStorage.setItem('poker_wallet_balance', String(newBal));
+          }}
+          onBackToLobby={() => {
+            setViewMode('lobby');
+            window.history.pushState({}, '', `?view=lobby&room=${roomId}`);
+            showToast('Kembali ke Ruangan Lounge 3D');
+          }}
+        />
+        {toast && (
+          <div className="toast-popup">
+            {toast}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (viewMode === 'blackjack') {
+    return (
+      <div className="flex flex-col min-h-screen relative overflow-hidden">
+        <BlackjackGame
+          walletBalance={walletBalance}
+          playerName={playerName}
+          onUpdateWallet={(newBal) => {
+            setWalletBalance(newBal);
+            localStorage.setItem('poker_wallet_balance', String(newBal));
+          }}
+          onBackToLobby={() => {
+            setViewMode('lobby');
+            window.history.pushState({}, '', `?view=lobby&room=${roomId}`);
+            showToast('Kembali ke Ruangan Lounge 3D');
+          }}
         />
         {toast && (
           <div className="toast-popup">
@@ -697,21 +901,25 @@ export const App: React.FC = () => {
               onClick={handleToggleMic}
               className={`btn-pill ${
                 voiceState === 'connected'
-                  ? isMicMuted
-                    ? 'btn-pill-dark'
-                    : 'btn-pill-emerald'
+                  ? voiceChat.hasMic() && !isMicMuted
+                    ? 'btn-pill-emerald'
+                    : isMicMuted
+                    ? 'btn-pill-rose'
+                    : 'btn-pill-dark'
                   : voiceState === 'connecting'
                   ? 'btn-pill-gold'
                   : 'btn-pill-dark'
               }`}
               style={
-                voiceState === 'connected' && !isMicMuted && speakingPeers.has('local')
+                voiceState === 'connected' && voiceChat.hasMic() && !isMicMuted && speakingPeers.has('local')
                   ? { boxShadow: '0 0 16px rgba(16, 185, 129, 0.8)', borderColor: '#34d399' }
                   : undefined
               }
               title={
                 voiceState === 'disconnected'
                   ? 'Nyalakan Mikrofon (On-Mic bersama teman di meja ini)'
+                  : !voiceChat.hasMic()
+                  ? 'Klik untuk mengaktifkan mikrofon Anda (On-Mic)'
                   : isMicMuted
                   ? 'Buka Mute Mikrofon'
                   : 'Mute Mikrofon'
@@ -732,9 +940,14 @@ export const App: React.FC = () => {
                   <span className="hidden sm:inline">Menghubungkan...</span>
                 </>
               ) : voiceState === 'connected' ? (
-                isMicMuted ? (
+                !voiceChat.hasMic() ? (
                   <>
-                    <MicOff size={14} color="#f87171" />
+                    <Mic size={14} className="text-amber-400" />
+                    <span className="hidden sm:inline">Aktifkan Mic</span>
+                  </>
+                ) : isMicMuted ? (
+                  <>
+                    <MicOff size={14} color="#fca5a5" />
                     <span className="hidden sm:inline" style={{ color: '#fca5a5' }}>Mic: Muted</span>
                   </>
                 ) : (
@@ -829,6 +1042,58 @@ export const App: React.FC = () => {
             <span className="hidden sm:inline">Berdiri dari Kursi</span>
           </button>
 
+          {/* Quick Jump to Roulette */}
+          <button
+            onClick={() => {
+              setViewMode('roulette');
+              window.history.pushState({}, '', '?view=roulette');
+            }}
+            className="btn-pill btn-pill-gold"
+            title="Pindah ke Meja Roulette Eropa"
+          >
+            <span>🎡</span>
+            <span className="hidden sm:inline">Roulette</span>
+          </button>
+
+          {/* Quick Jump to Slot Machine */}
+          <button
+            onClick={() => {
+              setViewMode('slot');
+              window.history.pushState({}, '', '?view=slot');
+            }}
+            className="btn-pill btn-pill-gold"
+            title="Pindah ke Mesin Slot 777 Jackpot"
+          >
+            <span>🎰</span>
+            <span className="hidden sm:inline">Slot 777</span>
+          </button>
+
+          {/* Quick Jump to Crash Aviator */}
+          <button
+            onClick={() => {
+              setViewMode('crash');
+              window.history.pushState({}, '', '?view=crash');
+            }}
+            className="btn-pill btn-pill-gold"
+            title="Pindah ke Roket Crash Aviator"
+          >
+            <span>🚀</span>
+            <span className="hidden sm:inline">Crash</span>
+          </button>
+
+          {/* Quick Jump to Blackjack 21 */}
+          <button
+            onClick={() => {
+              setViewMode('blackjack');
+              window.history.pushState({}, '', '?view=blackjack');
+            }}
+            className="btn-pill btn-pill-gold"
+            title="Pindah ke Meja Blackjack 21 VIP"
+          >
+            <span>🃏</span>
+            <span className="hidden sm:inline">Blackjack</span>
+          </button>
+
           {/* Return to 3D Lounge Button */}
           <button
             onClick={handleReturnToLounge}
@@ -861,6 +1126,12 @@ export const App: React.FC = () => {
               <div className="table-felt">
                 <div className="table-watermark">POKER INDONESIA</div>
 
+                {/* Flying Chip Animation Layer */}
+                <FlyingChipLayer
+                  events={flyingChips}
+                  onFinishEvent={handleFinishFlyingChip}
+                />
+
                 {/* Community Board in the center */}
                 <CommunityBoard
                   communityCards={tableState.communityCards}
@@ -890,6 +1161,7 @@ export const App: React.FC = () => {
 
                   // Check if this seat won
                   const winInfo = tableState.winners?.find(w => w.seatIndex === seatIdx);
+                  const seatWinningCards = winInfo?.winningCards || (tableState.winners ? tableState.winners.flatMap(w => w.winningCards || []) : undefined);
 
                   // Tip effect for this seat
                   let tipEffect: { type: 'sent' | 'received'; amount: number; phrase?: string } | null = null;
@@ -904,8 +1176,12 @@ export const App: React.FC = () => {
                   // Voice speaking state check for this player
                   const isSeatSpeaking = player
                     ? isMe
-                      ? speakingPeers.has('local') || (socket?.id ? speakingPeers.has(socket.id) : false) || speakingPeers.has(player.id)
-                      : speakingPeers.has(player.id)
+                      ? speakingPeers.has('local') ||
+                        (socket?.id ? speakingPeers.has(socket.id) : false) ||
+                        speakingPeers.has(player.id) ||
+                        speakingPeers.has(playerName.trim().toLowerCase())
+                      : speakingPeers.has(player.id) ||
+                        speakingPeers.has(player.name.trim().toLowerCase())
                     : false;
 
                   return (
@@ -925,6 +1201,7 @@ export const App: React.FC = () => {
                       isBigBlind={isBigBlind}
                       isWinner={Boolean(winInfo)}
                       winningHandName={winInfo?.handName}
+                      winningCards={seatWinningCards}
                       liveHandStrength={isMe ? myLiveHandStrength : null}
                       tipEffect={tipEffect}
                       isSpeaking={isSeatSpeaking}

@@ -161,6 +161,14 @@ class SoundEngine {
     });
   }
 
+  public playChipClick(): void {
+    this.playChipSound();
+  }
+
+  public playFold(): void {
+    this.playCheckSound();
+  }
+
   public playCheckSound(): void {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -231,6 +239,33 @@ class SoundEngine {
     });
   }
 
+  public playPotSplash(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    // Cascading coin shower frequencies simulating heaps of chips raked in
+    const freqs = [1850, 2200, 2600, 2900, 2400, 2800, 3100, 3500];
+    freqs.forEach((freq, idx) => {
+      const delay = idx * 0.045;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + delay + 0.07);
+
+      gain.gain.setValueAtTime(0.22, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.07);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.08);
+    });
+  }
+
   public playChatPop(): void {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -293,6 +328,271 @@ class SoundEngine {
       osc.start(now + idx * 0.06);
       osc.stop(now + idx * 0.06 + 0.4);
     });
+  }
+
+  public playRouletteSpin(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Simulate ball whirling around wooden rim with accelerating/pulsing clicks
+    const clicks = 24;
+    for (let i = 0; i < clicks; i++) {
+      const timeOffset = Math.pow(i / clicks, 1.4) * 2.8;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(900 + Math.random() * 400, now + timeOffset);
+      osc.frequency.exponentialRampToValueAtTime(250, now + timeOffset + 0.025);
+
+      const vol = 0.12 * (1 - i / (clicks * 1.3));
+      gain.gain.setValueAtTime(vol, now + timeOffset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.025);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + timeOffset);
+      osc.stop(now + timeOffset + 0.025);
+    }
+  }
+
+  public playRouletteBallDrop(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Ball bouncing across brass fret dividers into final pocket
+    const bounces = [0, 0.09, 0.16, 0.22, 0.27, 0.31];
+    bounces.forEach((bTime, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400 - idx * 120 + Math.random() * 80, now + bTime);
+      osc.frequency.exponentialRampToValueAtTime(300, now + bTime + 0.04);
+
+      const vol = 0.22 * (1 - idx * 0.14);
+      gain.gain.setValueAtTime(vol, now + bTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + bTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + bTime);
+      osc.stop(now + bTime + 0.04);
+    });
+  }
+
+  public playSlotLever(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Heavy mechanical latch click + spring snap
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+
+    gain.gain.setValueAtTime(0.28, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
+  public playSlotReelSpin(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Continuous whirring reel clicks
+    for (let i = 0; i < 18; i++) {
+      const t = i * 0.08;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(450 + (i % 3) * 60, now + t);
+      osc.frequency.exponentialRampToValueAtTime(180, now + t + 0.02);
+
+      gain.gain.setValueAtTime(0.08, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.02);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + t);
+      osc.stop(now + t + 0.02);
+    }
+  }
+
+  public playSlotReelStop(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Solid mechanical reel lock
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.09);
+
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.09);
+  }
+
+  public playSlotJackpot(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    // Retro electronic bells & triumphant arpeggio
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+      gain.gain.setValueAtTime(0.24, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.35);
+    });
+  }
+
+  public playRocketAscend(multiplier: number = 1.0): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    const baseFreq = Math.min(1200, 150 + multiplier * 80);
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.linearRampToValueAtTime(baseFreq + 40, now + 0.12);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
+
+  public playRocketCrash(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(25, now + 0.65);
+
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.65);
+  }
+
+  public playCashOut(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    [1046.50, 1567.98, 2093.00].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+      gain.gain.setValueAtTime(0.25, now + idx * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.3);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.05);
+      osc.stop(now + idx * 0.05 + 0.3);
+    });
+  }
+
+  public playBlackjackWin(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+      gain.gain.setValueAtTime(0.22, now + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.4);
+    });
+  }
+
+  public playBust(): void {
+    const ctx = this.getContext();
+    if (!ctx || !this.enabled) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.linearRampToValueAtTime(80, now + 0.35);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
   }
 }
 
