@@ -1007,6 +1007,154 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     return texture;
   };
 
+  // Helper to create Compact European Roulette Floating Pill Texture
+  const createRouletteBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎡', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('European Roulette VIP', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Slot Machine Row Floating Pill Texture
+  const createSlotsBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎰', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Mesin Slot 777 Jackpot', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Crash Aviator Floating Pill Texture
+  const createCrashBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚀', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Crash Aviator Roket', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  // Helper to create Compact Blackjack 21 Floating Pill Texture
+  const createBlackjackBillboardTexture = (): THREE.CanvasTexture => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 480, 128);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(14, 18, 452, 92, 46);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(58, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🃏', 58, 65);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 27px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Blackjack 21 VIP Table', 98, 65);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  };
+
   // Main Three.js Scene Setup
   useEffect(() => {
     const container = mountRef.current;
@@ -1063,10 +1211,10 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
     fillLight.position.set(-15, 12, -10);
     scene.add(fillLight);
 
-    // 5. Room Geometry (Luxury VIP Box Room)
-    const roomWidth = 34;
-    const roomDepth = 26;
-    const roomHeight = 9;
+    // 5. Room Geometry (Grand Luxury VIP Casino Lounge - Expanded 64x38)
+    const roomWidth = 64;
+    const roomDepth = 38;
+    const roomHeight = 9.5;
 
     // Floor
     const floorTexture = createProceduralCarpetTexture();
@@ -1124,7 +1272,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
     // Wall Pilasters & Gold Trims (Back Wall)
     const pilasterGeo = new THREE.BoxGeometry(0.8, roomHeight, 0.4);
-    [-12, -4, 4, 12].forEach(px => {
+    [-24, -18, -12, -6, 6, 12, 18, 24].forEach(px => {
       const p = new THREE.Mesh(pilasterGeo, borderMat);
       p.position.set(px, roomHeight / 2, -roomDepth / 2 + 0.25);
       p.castShadow = true;
@@ -1557,6 +1705,378 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
 
     scene.add(cashierGroup);
 
+    // 6c. Build Grand European Roulette Table at ROULETTE_TABLE_POS [20.0, 0, 2.0]
+    const rouletteGroup = new THREE.Group();
+    rouletteGroup.position.set(...ROULETTE_TABLE_POS);
+    rouletteGroup.name = 'roulette_table';
+
+    // Mahogany Pedestal Table Base
+    const rouletteBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.95, 0.95, 24),
+      new THREE.MeshStandardMaterial({ color: 0x1c0f09, roughness: 0.35, metalness: 0.25 })
+    );
+    rouletteBase.position.y = 0.475;
+    rouletteBase.castShadow = true;
+    rouletteGroup.add(rouletteBase);
+
+    // Oval Green Roulette Felt
+    const rouletteFelt = new THREE.Mesh(
+      new THREE.BoxGeometry(4.8, 0.16, 2.8),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.5, metalness: 0.1 })
+    );
+    rouletteFelt.position.y = 1.0;
+    rouletteFelt.castShadow = true;
+    rouletteFelt.receiveShadow = true;
+    rouletteGroup.add(rouletteFelt);
+
+    // Mahogany Curved Leather Armrest Rim
+    const rouletteRim = new THREE.Mesh(
+      new THREE.BoxGeometry(5.1, 0.18, 3.1),
+      new THREE.MeshStandardMaterial({ color: 0x241208, roughness: 0.25, metalness: 0.3 })
+    );
+    rouletteRim.position.y = 0.95;
+    rouletteGroup.add(rouletteRim);
+
+    // Gold Number Grid on Felt
+    const rouletteGrid = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x047857, roughness: 0.3 })
+    );
+    rouletteGrid.rotation.x = -Math.PI / 2;
+    rouletteGrid.position.set(0.8, 1.09, 0);
+    rouletteGroup.add(rouletteGrid);
+
+    // 3D Roulette Wheel Cylinder
+    const wheelBowl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.85, 0.75, 0.28, 32),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2, metalness: 0.85 })
+    );
+    wheelBowl.position.set(-1.2, 1.14, 0);
+    rouletteGroup.add(wheelBowl);
+
+    // Rotating Wheel Head
+    const wheelInner = new THREE.Group();
+    wheelInner.position.set(-1.2, 1.25, 0);
+    const wheelSpindle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.18, 16),
+      new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.1, metalness: 0.95 })
+    );
+    wheelInner.add(wheelSpindle);
+    const wheelDisc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.68, 0.68, 0.06, 24),
+      new THREE.MeshStandardMaterial({ color: 0x881337, roughness: 0.3, metalness: 0.4 })
+    );
+    wheelInner.add(wheelDisc);
+    rouletteGroup.add(wheelInner);
+    rouletteWheelMeshRef.current = wheelInner;
+
+    // Croupier NPC Clara behind wheel
+    const claraAvatar = createAvatar('Mbak Clara', 1, false);
+    claraAvatar.group.position.set(-1.2, 0, -1.6);
+    claraAvatar.group.rotation.y = 0;
+    rouletteCroupierArmRef.current = claraAvatar.rightArm;
+    rouletteGroup.add(claraAvatar.group);
+
+    // Roulette Spotlight
+    const rouletteSpot = new THREE.SpotLight(0xf59e0b, 2.2);
+    rouletteSpot.position.set(ROULETTE_TABLE_POS[0], 5.5, ROULETTE_TABLE_POS[2] + 1.2);
+    rouletteSpot.target = rouletteGroup;
+    rouletteSpot.angle = 0.65;
+    rouletteSpot.penumbra = 0.45;
+    rouletteSpot.distance = 12;
+    scene.add(rouletteSpot);
+    rouletteSpotlightRef.current = rouletteSpot;
+
+    // Billboard Sprite
+    const rouletteBillboardTex = createRouletteBillboardTexture();
+    const rouletteBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: rouletteBillboardTex, transparent: true })
+    );
+    rouletteBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    rouletteBillboardSprite.position.set(0, 3.55, 0.2);
+    rouletteGroup.add(rouletteBillboardSprite);
+    rouletteBillboardRef.current = rouletteBillboardSprite;
+
+    scene.add(rouletteGroup);
+
+    // 6d. Build 777 Slot Machine Arcade Row at SLOT_MACHINE_POS [-20.0, 0, 2.0]
+    const slotsGroup = new THREE.Group();
+    slotsGroup.position.set(...SLOT_MACHINE_POS);
+    slotsGroup.name = 'slot_machine_row';
+
+    const slotXPositions = [-1.8, 0, 1.8];
+    slotXPositions.forEach((sx, idx) => {
+      const cabinetGroup = new THREE.Group();
+      cabinetGroup.position.set(sx, 0, 0);
+
+      // Main Cabinet Body
+      const cabBody = new THREE.Mesh(
+        new THREE.BoxGeometry(1.3, 2.4, 1.1),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.6 })
+      );
+      cabBody.position.y = 1.2;
+      cabBody.castShadow = true;
+      cabinetGroup.add(cabBody);
+
+      // Gold Trim Edge
+      const cabTrim = new THREE.Mesh(
+        new THREE.BoxGeometry(1.36, 0.08, 1.16),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.85 })
+      );
+      cabTrim.position.y = 2.42;
+      cabinetGroup.add(cabTrim);
+
+      // Neon Top Marquee ("777")
+      const marquee = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.5, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.8 })
+      );
+      marquee.position.set(0, 2.15, 0.5);
+      cabinetGroup.add(marquee);
+
+      // Glass Reel Display Screen
+      const screenDisplay = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.75, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.1 })
+      );
+      screenDisplay.position.set(0, 1.45, 0.53);
+      cabinetGroup.add(screenDisplay);
+
+      // Pull Lever on right side
+      const leverBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8),
+        new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9 })
+      );
+      leverBase.position.set(0.72, 1.45, 0.15);
+      leverBase.rotation.z = -0.35;
+      cabinetGroup.add(leverBase);
+
+      const leverKnob = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 })
+      );
+      leverKnob.position.set(0.82, 1.62, 0.15);
+      cabinetGroup.add(leverKnob);
+
+      slotsGroup.add(cabinetGroup);
+    });
+
+    // NPC Budi in front of center machine
+    const budiAvatar = createAvatar('Budi', 3, false);
+    budiAvatar.group.position.set(0, 0, 1.55);
+    budiAvatar.group.rotation.y = Math.PI;
+    budiAvatar.rightArm.rotation.x = -1.1;
+    slotsGroup.add(budiAvatar.group);
+
+    // Slots Spotlight
+    const slotsSpot = new THREE.SpotLight(0xef4444, 2.2);
+    slotsSpot.position.set(SLOT_MACHINE_POS[0], 5.5, SLOT_MACHINE_POS[2] + 1.2);
+    slotsSpot.target = slotsGroup;
+    slotsSpot.angle = 0.65;
+    slotsSpot.penumbra = 0.45;
+    slotsSpot.distance = 12;
+    scene.add(slotsSpot);
+    slotsSpotlightRef.current = slotsSpot;
+
+    // Billboard Sprite
+    const slotsBillboardTex = createSlotsBillboardTexture();
+    const slotsBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: slotsBillboardTex, transparent: true })
+    );
+    slotsBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    slotsBillboardSprite.position.set(0, 3.65, 0.3);
+    slotsGroup.add(slotsBillboardSprite);
+    slotsBillboardRef.current = slotsBillboardSprite;
+
+    scene.add(slotsGroup);
+
+    // 6e. Build Crash Aviator Launchpad Terminal at CRASH_TERMINAL_POS [-15.0, 0, -11.0]
+    const crashGroup = new THREE.Group();
+    crashGroup.position.set(...CRASH_TERMINAL_POS);
+    crashGroup.name = 'crash_terminal';
+
+    // Octagonal Launchpad Pedestal Base
+    const launchpadBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.2, 2.4, 0.22, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.7 })
+    );
+    launchpadBase.position.y = 0.11;
+    launchpadBase.receiveShadow = true;
+    crashGroup.add(launchpadBase);
+
+    // Runway Glowing Ring
+    const runwayRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.6, 1.9, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        emissive: 0xf97316,
+        emissiveIntensity: 0.8,
+        side: THREE.DoubleSide
+      })
+    );
+    runwayRing.rotation.x = -Math.PI / 2;
+    runwayRing.position.y = 0.23;
+    crashGroup.add(runwayRing);
+
+    // Floating 3D Rocket Group
+    const rocketMeshGroup = new THREE.Group();
+    rocketMeshGroup.position.set(0, 1.35, 0);
+
+    // Fuselage (Body)
+    const rocketBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.38, 1.2, 24),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.5 })
+    );
+    rocketMeshGroup.add(rocketBody);
+
+    // Nose Cone
+    const rocketNose = new THREE.Mesh(
+      new THREE.ConeGeometry(0.3, 0.65, 24),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2, metalness: 0.6 })
+    );
+    rocketNose.position.y = 0.92;
+    rocketMeshGroup.add(rocketNose);
+
+    // Cockpit Window (Cyan Visor)
+    const rocketVisor = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.8 })
+    );
+    rocketVisor.position.set(0, 0.35, 0.24);
+    rocketVisor.scale.set(1, 1.2, 0.8);
+    rocketMeshGroup.add(rocketVisor);
+
+    // 3 Aerodynamic Fins
+    for (let f = 0; f < 3; f++) {
+      const finAngle = (f / 3) * Math.PI * 2;
+      const fin = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.5, 0.4),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.5 })
+      );
+      fin.position.set(Math.cos(finAngle) * 0.38, -0.42, Math.sin(finAngle) * 0.38);
+      fin.rotation.y = -finAngle;
+      rocketMeshGroup.add(fin);
+    }
+
+    // Exhaust Thruster Plume Flame
+    const thrusterFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.24, 0.6, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        emissive: 0xfbbf24,
+        emissiveIntensity: 1.2,
+        roughness: 0.1
+      })
+    );
+    thrusterFlame.position.y = -0.85;
+    thrusterFlame.rotation.x = Math.PI;
+    rocketMeshGroup.add(thrusterFlame);
+
+    crashGroup.add(rocketMeshGroup);
+    crashRocketMeshRef.current = rocketMeshGroup;
+
+    // Crash Spotlight
+    const crashSpot = new THREE.SpotLight(0xf97316, 2.5);
+    crashSpot.position.set(CRASH_TERMINAL_POS[0], 5.5, CRASH_TERMINAL_POS[2] + 1.5);
+    crashSpot.target = crashGroup;
+    crashSpot.angle = 0.65;
+    crashSpot.penumbra = 0.45;
+    crashSpot.distance = 12;
+    scene.add(crashSpot);
+    crashSpotlightRef.current = crashSpot;
+
+    // Billboard Sprite
+    const crashBillboardTex = createCrashBillboardTexture();
+    const crashBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: crashBillboardTex, transparent: true })
+    );
+    crashBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    crashBillboardSprite.position.set(0, 3.65, 0.2);
+    crashGroup.add(crashBillboardSprite);
+    crashBillboardRef.current = crashBillboardSprite;
+
+    scene.add(crashGroup);
+
+    // 6f. Build VIP Blackjack 21 Table at BLACKJACK_TABLE_POS [15.0, 0, -11.0]
+    const blackjackGroup = new THREE.Group();
+    blackjackGroup.position.set(...BLACKJACK_TABLE_POS);
+    blackjackGroup.name = 'blackjack_table';
+
+    // Pedestal Base
+    const bjBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.95, 0.95, 24),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.35, metalness: 0.3 })
+    );
+    bjBase.position.y = 0.475;
+    bjBase.castShadow = true;
+    blackjackGroup.add(bjBase);
+
+    // Semicircular Green Felt
+    const bjFelt = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.3, 0.16, 32, 1, false, 0, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.48, metalness: 0.12 })
+    );
+    bjFelt.position.set(0, 1.0, 0);
+    bjFelt.rotation.y = Math.PI;
+    bjFelt.castShadow = true;
+    bjFelt.receiveShadow = true;
+    blackjackGroup.add(bjFelt);
+
+    // Padded Leather Rail
+    const bjRail = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.45, 2.45, 0.18, 32, 1, false, 0, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x241208, roughness: 0.25, metalness: 0.4 })
+    );
+    bjRail.position.set(0, 0.95, 0);
+    bjRail.rotation.y = Math.PI;
+    blackjackGroup.add(bjRail);
+
+    // Card Dealing Shoe on felt
+    const bjShoe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.2, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2, metalness: 0.85 })
+    );
+    bjShoe.position.set(1.1, 1.15, -0.4);
+    bjShoe.rotation.y = -0.4;
+    blackjackGroup.add(bjShoe);
+
+    // Chip Tray
+    const bjChipTray = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.12, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.3, metalness: 0.6 })
+    );
+    bjChipTray.position.set(0, 1.12, -0.7);
+    blackjackGroup.add(bjChipTray);
+
+    // Dealer Roy NPC behind table
+    const royAvatar = createAvatar('Dealer Roy', 0, false);
+    royAvatar.group.position.set(0, 0, -1.55);
+    royAvatar.group.rotation.y = 0;
+    blackjackDealerArmRef.current = royAvatar.rightArm;
+    blackjackGroup.add(royAvatar.group);
+
+    // Blackjack Spotlight
+    const bjSpot = new THREE.SpotLight(0x10b981, 2.5);
+    bjSpot.position.set(BLACKJACK_TABLE_POS[0], 5.5, BLACKJACK_TABLE_POS[2] + 1.5);
+    bjSpot.target = blackjackGroup;
+    bjSpot.angle = 0.65;
+    bjSpot.penumbra = 0.45;
+    bjSpot.distance = 12;
+    scene.add(bjSpot);
+    blackjackSpotlightRef.current = bjSpot;
+
+    // Billboard Sprite
+    const bjBillboardTex = createBlackjackBillboardTexture();
+    const bjBillboardSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: bjBillboardTex, transparent: true })
+    );
+    bjBillboardSprite.scale.set(2.8, 0.75, 1.0);
+    bjBillboardSprite.position.set(0, 3.65, 0.2);
+    blackjackGroup.add(bjBillboardSprite);
+    blackjackBillboardRef.current = bjBillboardSprite;
+
+    scene.add(blackjackGroup);
+
     // 7. Click Destination Marker (Expanding Gold Pulse Ring)
     const markerGeo = new THREE.RingGeometry(0.35, 0.5, 32);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0 });
@@ -1806,9 +2326,9 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         }
       }
 
-      // Boundaries (Stay inside room)
-      playerPosRef.current.x = Math.max(-14, Math.min(14, playerPosRef.current.x));
-      playerPosRef.current.z = Math.max(-10.5, Math.min(10.5, playerPosRef.current.z));
+      // Boundaries (Stay inside grand expanded room 64x38)
+      playerPosRef.current.x = Math.max(-28.5, Math.min(28.5, playerPosRef.current.x));
+      playerPosRef.current.z = Math.max(-16.0, Math.min(16.0, playerPosRef.current.z));
 
       // Simple Table Collision check (push away from table centers)
       CASINO_TABLES.forEach(t => {
@@ -1833,6 +2353,58 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           const push = (cMinRadius - cdist) / cdist;
           playerPosRef.current.x += cdx * push;
           playerPosRef.current.z += cdz * push;
+        }
+      }
+
+      // Roulette Table Collision check
+      {
+        const rdx = playerPosRef.current.x - ROULETTE_TABLE_POS[0];
+        const rdz = playerPosRef.current.z - ROULETTE_TABLE_POS[2];
+        const rdist = Math.hypot(rdx, rdz);
+        const rMinRadius = 2.4;
+        if (rdist < rMinRadius && rdist > 0.001) {
+          const push = (rMinRadius - rdist) / rdist;
+          playerPosRef.current.x += rdx * push;
+          playerPosRef.current.z += rdz * push;
+        }
+      }
+
+      // Slot Machines Collision check
+      {
+        const sdx = playerPosRef.current.x - SLOT_MACHINE_POS[0];
+        const sdz = playerPosRef.current.z - SLOT_MACHINE_POS[2];
+        const sdist = Math.hypot(sdx, sdz);
+        const sMinRadius = 2.4;
+        if (sdist < sMinRadius && sdist > 0.001) {
+          const push = (sMinRadius - sdist) / sdist;
+          playerPosRef.current.x += sdx * push;
+          playerPosRef.current.z += sdz * push;
+        }
+      }
+
+      // Crash Terminal Collision check
+      {
+        const ctdx = playerPosRef.current.x - CRASH_TERMINAL_POS[0];
+        const ctdz = playerPosRef.current.z - CRASH_TERMINAL_POS[2];
+        const ctDist = Math.hypot(ctdx, ctdz);
+        const ctMinRadius = 2.2;
+        if (ctDist < ctMinRadius && ctDist > 0.001) {
+          const push = (ctMinRadius - ctDist) / ctDist;
+          playerPosRef.current.x += ctdx * push;
+          playerPosRef.current.z += ctdz * push;
+        }
+      }
+
+      // Blackjack Table Collision check
+      {
+        const bjdx = playerPosRef.current.x - BLACKJACK_TABLE_POS[0];
+        const bjdz = playerPosRef.current.z - BLACKJACK_TABLE_POS[2];
+        const bjDist = Math.hypot(bjdx, bjdz);
+        const bjMinRadius = 2.4;
+        if (bjDist < bjMinRadius && bjDist > 0.001) {
+          const push = (bjMinRadius - bjDist) / bjDist;
+          playerPosRef.current.x += bjdx * push;
+          playerPosRef.current.z += bjdz * push;
         }
       }
 
@@ -2006,6 +2578,107 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
         cashierNpcBodyRef.current.position.y = 1.35 + Math.sin(time * 0.003) * 0.025;
       }
 
+      // Proximity Detection & Animation for Grand European Roulette Table
+      const rouletteDist = Math.hypot(
+        playerPosRef.current.x - ROULETTE_TABLE_POS[0],
+        playerPosRef.current.z - ROULETTE_TABLE_POS[2]
+      );
+      const nearRoulette = rouletteDist < 4.8 && !closest && !nearCashier;
+      isNearRouletteRef.current = nearRoulette;
+      setIsNearRoulette(nearRoulette);
+
+      if (rouletteSpotlightRef.current) {
+        rouletteSpotlightRef.current.intensity = nearRoulette ? 3.4 : 2.2;
+      }
+      if (rouletteBillboardRef.current) {
+        if (nearRoulette) {
+          rouletteBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          rouletteBillboardRef.current.position.y = 3.65 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          rouletteBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          rouletteBillboardRef.current.position.y = 3.55;
+        }
+      }
+      if (rouletteWheelMeshRef.current) {
+        rouletteWheelMeshRef.current.rotation.y += delta * 0.45;
+      }
+      if (rouletteCroupierArmRef.current) {
+        rouletteCroupierArmRef.current.rotation.x = -0.55 + Math.sin(time * 0.0025) * 0.2;
+      }
+
+      // Proximity Detection & Animation for Slot Machine Arcade Zone
+      const slotsDist = Math.hypot(
+        playerPosRef.current.x - SLOT_MACHINE_POS[0],
+        playerPosRef.current.z - SLOT_MACHINE_POS[2]
+      );
+      const nearSlots = slotsDist < 4.8 && !closest && !nearCashier && !nearRoulette;
+      isNearSlotsRef.current = nearSlots;
+      setIsNearSlots(nearSlots);
+
+      if (slotsSpotlightRef.current) {
+        slotsSpotlightRef.current.intensity = nearSlots ? 3.4 : 2.2;
+      }
+      if (slotsBillboardRef.current) {
+        if (nearSlots) {
+          slotsBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          slotsBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          slotsBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          slotsBillboardRef.current.position.y = 3.65;
+        }
+      }
+
+      // Proximity Detection & Animation for Crash Aviator Terminal
+      const crashDist = Math.hypot(
+        playerPosRef.current.x - CRASH_TERMINAL_POS[0],
+        playerPosRef.current.z - CRASH_TERMINAL_POS[2]
+      );
+      const nearCrash = crashDist < 4.8 && !closest && !nearCashier && !nearRoulette && !nearSlots;
+      isNearCrashRef.current = nearCrash;
+      setIsNearCrash(nearCrash);
+
+      if (crashSpotlightRef.current) {
+        crashSpotlightRef.current.intensity = nearCrash ? 3.6 : 2.5;
+      }
+      if (crashBillboardRef.current) {
+        if (nearCrash) {
+          crashBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          crashBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          crashBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          crashBillboardRef.current.position.y = 3.65;
+        }
+      }
+      if (crashRocketMeshRef.current) {
+        crashRocketMeshRef.current.rotation.y += delta * 0.8;
+        crashRocketMeshRef.current.position.y = 1.35 + Math.sin(time * 0.003) * 0.08;
+      }
+
+      // Proximity Detection & Animation for VIP Blackjack 21 Table
+      const bjDist = Math.hypot(
+        playerPosRef.current.x - BLACKJACK_TABLE_POS[0],
+        playerPosRef.current.z - BLACKJACK_TABLE_POS[2]
+      );
+      const nearBlackjack = bjDist < 4.8 && !closest && !nearCashier && !nearRoulette && !nearSlots && !nearCrash;
+      isNearBlackjackRef.current = nearBlackjack;
+      setIsNearBlackjack(nearBlackjack);
+
+      if (blackjackSpotlightRef.current) {
+        blackjackSpotlightRef.current.intensity = nearBlackjack ? 3.6 : 2.5;
+      }
+      if (blackjackBillboardRef.current) {
+        if (nearBlackjack) {
+          blackjackBillboardRef.current.scale.set(3.1, 0.83, 1.0);
+          blackjackBillboardRef.current.position.y = 3.75 + Math.sin(time * 0.004) * 0.06;
+        } else {
+          blackjackBillboardRef.current.scale.set(2.8, 0.75, 1.0);
+          blackjackBillboardRef.current.position.y = 3.65;
+        }
+      }
+      if (blackjackDealerArmRef.current) {
+        blackjackDealerArmRef.current.rotation.x = -0.45 + Math.sin(time * 0.002) * 0.15;
+      }
+
       // Smooth Third-Person Camera Follow
       if (cameraRef.current && !isTransitioning) {
         const targetCamX = playerPosRef.current.x * 0.45;
@@ -2147,13 +2820,33 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
           e.preventDefault();
           e.stopPropagation();
           handleOpenCashierModal();
+        } else if (isNearRoulette && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectRoulette?.();
+        } else if (isNearSlots && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectSlots?.();
+        } else if (isNearCrash && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectCrash?.();
+        } else if (isNearBlackjack && !isTransitioning) {
+          e.preventDefault();
+          e.stopPropagation();
+          soundEffects.playEnterTable();
+          onSelectBlackjack?.();
         }
       }
     };
 
     window.addEventListener('keydown', handleGlobalKey, true);
     return () => window.removeEventListener('keydown', handleGlobalKey, true);
-  }, [nearbyTable, isNearCashier, isTransitioning, showCashierModal, handleOpenCashierModal]);
+  }, [nearbyTable, isNearCashier, isNearRoulette, isNearSlots, isNearCrash, isNearBlackjack, isTransitioning, showCashierModal, handleOpenCashierModal, onSelectRoulette, onSelectSlots, onSelectCrash, onSelectBlackjack]);
 
   // Virtual joystick touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -2426,6 +3119,98 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             </span>
           </button>
 
+          {/* Quick Action: Main Roulette */}
+          <button
+            onClick={() => onSelectRoulette?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.4))',
+              border: '1px solid rgba(251, 191, 36, 0.5)',
+              color: '#fef08a',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Meja Roulette Eropa"
+          >
+            <span>🎡</span>
+            <span className="hidden sm:inline">Roulette</span>
+          </button>
+
+          {/* Quick Action: Mesin Slot */}
+          <button
+            onClick={() => onSelectSlots?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.4))',
+              border: '1px solid rgba(248, 113, 113, 0.5)',
+              color: '#fca5a5',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Mesin Slot 777 Jackpot"
+          >
+            <span>🎰</span>
+            <span className="hidden sm:inline">Slot 777</span>
+          </button>
+
+          {/* Quick Action: Crash Aviator */}
+          <button
+            onClick={() => onSelectCrash?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(194, 65, 12, 0.4))',
+              border: '1px solid rgba(251, 146, 60, 0.5)',
+              color: '#fed7aa',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              boxShadow: '0 4px 15px rgba(249, 115, 22, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Roket Crash Aviator"
+          >
+            <span>🚀</span>
+            <span className="hidden sm:inline">Crash</span>
+          </button>
+
+          {/* Quick Action: Blackjack 21 */}
+          <button
+            onClick={() => onSelectBlackjack?.()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(4, 120, 87, 0.4))',
+              border: '1px solid rgba(52, 211, 153, 0.5)',
+              color: '#a7f3d0',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.25)',
+              cursor: 'pointer'
+            }}
+            title="Buka Meja Blackjack 21 VIP"
+          >
+            <span>🃏</span>
+            <span className="hidden sm:inline">Blackjack</span>
+          </button>
+
           {/* Quick Rooms List Modal Toggle */}
           <button
             onClick={() => setShowRoomListModal(true)}
@@ -2477,295 +3262,7 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
       )}
 
       {/* Floating Active Players in Lounge Panel */}
-      <div
-        className="lobby-ui-element"
-        style={{
-          position: 'absolute',
-          top: '80px',
-          left: '16px',
-          zIndex: 25,
-          background: 'rgba(15, 23, 42, 0.90)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(245, 158, 11, 0.35)',
-          borderRadius: '16px',
-          padding: '12px 14px',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.65)',
-          width: '270px',
-          pointerEvents: 'auto'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc' }}>
-              Pemain di Lounge ({remotePlayersList.length + 1})
-            </span>
-          </div>
-          <span style={{ fontSize: '10px', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '999px' }}>
-            Live 3D
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-          {/* Local Player */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'rgba(245, 158, 11, 0.12)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              borderRadius: '8px',
-              padding: '6px 10px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: OUTFIT_COLORS[suitColorIdx % OUTFIT_COLORS.length].hex,
-                  border: '1px solid #ffffff'
-                }}
-              />
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a' }}>
-                  {playerName} (Anda)
-                </div>
-                <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#34d399', fontFamily: 'monospace' }}>
-                  Rp {walletBalance.toLocaleString('id-ID')}
-                </div>
-              </div>
-            </div>
-            <span style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 800 }}>👑 VIP</span>
-          </div>
-
-          {/* Other Players */}
-          {remotePlayersList.length === 0 ? (
-            <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', padding: '6px 4px' }}>
-              Menunggu teman bergabung ke Lounge...
-            </div>
-          ) : (
-            remotePlayersList.map((player) => (
-              <div
-                key={player.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  borderRadius: '8px',
-                  padding: '6px 10px'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: OUTFIT_COLORS[player.suitColorIdx % OUTFIT_COLORS.length]?.hex || '#38bdf8',
-                      border: '1px solid #38bdf8'
-                    }}
-                  />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0' }}>
-                    {player.name}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleTeleportToPlayer(player)}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#38bdf8',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    border: '1px solid rgba(56, 189, 248, 0.4)',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                  title="Jalan mendekati posisi teman ini"
-                >
-                  📍 Temui
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Floating Leaderboard (Papan Peringkat Sultan) Panel on Right Side */}
-      <div
-        className="lobby-ui-element"
-        style={{
-          position: 'absolute',
-          top: '80px',
-          right: '16px',
-          zIndex: 25,
-          background: 'rgba(15, 23, 42, 0.92)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(245, 158, 11, 0.45)',
-          borderRadius: '16px',
-          padding: '12px 14px',
-          boxShadow: '0 14px 36px rgba(0,0,0,0.75)',
-          width: '295px',
-          pointerEvents: 'auto'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-            <Award size={16} color="#f59e0b" />
-            <span style={{ fontSize: '13px', fontWeight: 900, color: '#fef08a', letterSpacing: '0.02em' }}>
-              Papan Peringkat Sultan
-            </span>
-          </div>
-          <span
-            style={{
-              fontSize: '9.5px',
-              fontWeight: 800,
-              color: '#34d399',
-              background: 'rgba(16, 185, 129, 0.14)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              padding: '2px 7px',
-              borderRadius: '999px'
-            }}
-          >
-            Real-Time
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
-          {(() => {
-            const activeList = leaderboard.length > 0 ? leaderboard : fetchedLeaderboard;
-            // Ensure current user is always visible in the list even before first server sync
-            const hasMe = activeList.some(
-              item =>
-                (walletId && item.walletId === walletId) ||
-                item.name.trim().toLowerCase() === playerName.trim().toLowerCase()
-            );
-            const combined = hasMe
-              ? activeList
-              : [
-                  ...activeList,
-                  {
-                    walletId: walletId || 'local',
-                    name: playerName,
-                    balance: walletBalance,
-                    wins: walletWins,
-                    handsPlayed: 0,
-                    updatedAt: Date.now()
-                  }
-                ].sort((a, b) => b.balance - a.balance);
-
-            return combined.slice(0, 10).map((entry, idx) => {
-              const isMeEntry =
-                (walletId && entry.walletId === walletId) ||
-                entry.name.trim().toLowerCase() === playerName.trim().toLowerCase();
-              const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
-
-              return (
-                <div
-                  key={entry.walletId || `${entry.name}-${idx}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '7px 10px',
-                    borderRadius: '10px',
-                    background: isMeEntry
-                      ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(16, 185, 129, 0.15))'
-                      : idx === 0
-                      ? 'rgba(245, 158, 11, 0.1)'
-                      : 'rgba(255, 255, 255, 0.04)',
-                    border: isMeEntry
-                      ? '1px solid rgba(245, 158, 11, 0.55)'
-                      : '1px solid rgba(255, 255, 255, 0.07)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <span
-                      style={{
-                        fontSize: idx < 3 ? '14px' : '11px',
-                        fontWeight: 900,
-                        color: idx < 3 ? '#fbbf24' : '#94a3b8',
-                        width: '22px',
-                        textAlign: 'center',
-                        flexShrink: 0
-                      }}
-                    >
-                      {rankBadge}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 800,
-                          color: isMeEntry ? '#fef08a' : '#f1f5f9',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: '130px'
-                        }}
-                      >
-                        {entry.name} {isMeEntry ? '(Anda)' : entry.isBot ? '🤖' : ''}
-                      </div>
-                      <div style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: 600 }}>
-                        🏆 {entry.wins || 0} Menang
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: '11.5px',
-                      fontWeight: 900,
-                      color: '#34d399',
-                      fontFamily: 'monospace',
-                      flexShrink: 0
-                    }}
-                  >
-                    Rp {entry.balance.toLocaleString('id-ID')}
-                  </div>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      </div>
-
-      {/* Mini-map / Room Compass HUD in Bottom Left */}
-      <div
-        className="lobby-ui-element"
-        style={{
-          position: 'absolute',
-          bottom: '24px',
-          left: '24px',
-          background: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '16px',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          pointerEvents: 'auto',
-          zIndex: 15
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 800, color: '#f59e0b' }}>
-          <Compass size={14} />
-          <span>KONTROL NAVIGASI</span>
-        </div>
-        <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.4' }}>
-          • Gunakan <strong>W, A, S, D</strong> atau <strong>Panah</strong> untuk jalan
-          <br />
-          • Atau <strong>Klik Lantai</strong> untuk bergerak ke tujuan
-          <br />
-          • Dekati meja dan tekan <strong>[E]</strong> untuk masuk
-        </div>
-      </div>
+      
 
       {/* Proximity Table Prompt (Appears when character walks near a table) */}
       {nearbyTable && (
@@ -2965,6 +3462,398 @@ export const Lobby3D: React.FC<Lobby3DProps> = ({
             }}
           >
             <span>🐍 BUKA LOKET [E]</span>
+          </button>
+        </div>
+      )}
+
+      {/* Bottom-Center Proximity European Roulette Prompt */}
+      {isNearRoulette && !nearbyTable && !isNearCashier && !showCashierModal && (
+        <div
+          className="lobby-ui-element animate-fade-in"
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            backdropFilter: 'blur(18px)',
+            border: '1px solid rgba(245, 158, 11, 0.45)',
+            boxShadow: '0 16px 44px rgba(0, 0, 0, 0.75), 0 0 25px rgba(245, 158, 11, 0.25)',
+            borderRadius: '18px',
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            maxWidth: '560px',
+            width: '90%',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            animation: 'slideUp 0.25s ease-out'
+          }}
+        >
+          <div
+            style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #f59e0b, #b45309)',
+              border: '2px solid rgba(255,255,255,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              flexShrink: 0
+            }}
+          >
+            🎡
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#fbbf24',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '2px 9px',
+                  borderRadius: '999px'
+                }}
+              >
+                ROULETTE EROPA
+              </span>
+              <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: 600 }}>
+                Payout Single Number 35:1
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: '0 0 4px 0' }}>
+              European Roulette VIP
+            </h3>
+
+            <div style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>
+              Putar roda roulette 37 slot (0-36). Pasang Straight, Red/Black, Odd/Even, Dozen, dll.
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              soundEffects.playEnterTable();
+              onSelectRoulette?.();
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#0f172a',
+              border: 'none',
+              padding: '14px 22px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(245, 158, 11, 0.45)',
+              flexShrink: 0,
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <Play size={17} fill="#0f172a" />
+            <span>MAIN [E]</span>
+          </button>
+        </div>
+      )}
+
+      {/* Bottom-Center Proximity Slot Machine Prompt */}
+      {isNearSlots && !nearbyTable && !isNearCashier && !isNearRoulette && !showCashierModal && (
+        <div
+          className="lobby-ui-element animate-fade-in"
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            backdropFilter: 'blur(18px)',
+            border: '1px solid rgba(239, 68, 68, 0.45)',
+            boxShadow: '0 16px 44px rgba(0, 0, 0, 0.75), 0 0 25px rgba(239, 68, 68, 0.25)',
+            borderRadius: '18px',
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            maxWidth: '560px',
+            width: '90%',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            animation: 'slideUp 0.25s ease-out'
+          }}
+        >
+          <div
+            style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #ef4444, #991b1b)',
+              border: '2px solid rgba(255,255,255,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              flexShrink: 0
+            }}
+          >
+            🎰
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#f87171',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '2px 9px',
+                  borderRadius: '999px'
+                }}
+              >
+                MESIN SLOT 777
+              </span>
+              <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: 600 }}>
+                Grand Jackpot 250x
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: '0 0 4px 0' }}>
+              Lucky 777 VIP Slot Machine
+            </h3>
+
+            <div style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>
+              Tarik tuas untuk memutar 3 reel! Hadiah jackpot 777 hingga 250x lipat taruhan.
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              soundEffects.playEnterTable();
+              onSelectSlots?.();
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '14px 22px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(239, 68, 68, 0.45)',
+              flexShrink: 0,
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <Play size={17} fill="#ffffff" />
+            <span>MAIN [E]</span>
+          </button>
+        </div>
+      )}
+
+      {/* Bottom-Center Proximity Crash Aviator Prompt */}
+      {isNearCrash && !nearbyTable && !isNearCashier && !isNearRoulette && !isNearSlots && !showCashierModal && (
+        <div
+          className="lobby-ui-element animate-fade-in"
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            backdropFilter: 'blur(18px)',
+            border: '1px solid rgba(249, 115, 22, 0.5)',
+            boxShadow: '0 16px 44px rgba(0, 0, 0, 0.75), 0 0 25px rgba(249, 115, 22, 0.25)',
+            borderRadius: '18px',
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            maxWidth: '560px',
+            width: '90%',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            animation: 'slideUp 0.25s ease-out'
+          }}
+        >
+          <div
+            style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #f97316, #c2410c)',
+              border: '2px solid rgba(255,255,255,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              flexShrink: 0
+            }}
+          >
+            🚀
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#fb923c',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '2px 9px',
+                  borderRadius: '999px'
+                }}
+              >
+                CRASH AVIATOR
+              </span>
+              <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: 600 }}>
+                Pengganda Hingga 100x+
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: '0 0 4px 0' }}>
+              Crash Aviator Launchpad
+            </h3>
+
+            <div style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>
+              Pasang taruhan chip dan saksikan roket meluncur! Tarik (Cash Out) sebelum roket meledak.
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              soundEffects.playEnterTable();
+              onSelectCrash?.();
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '14px 22px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(249, 115, 22, 0.45)',
+              flexShrink: 0,
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <Play size={17} fill="#ffffff" />
+            <span>MAIN [E]</span>
+          </button>
+        </div>
+      )}
+
+      {/* Bottom-Center Proximity Blackjack 21 Prompt */}
+      {isNearBlackjack && !nearbyTable && !isNearCashier && !isNearRoulette && !isNearSlots && !isNearCrash && !showCashierModal && (
+        <div
+          className="lobby-ui-element animate-fade-in"
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            backdropFilter: 'blur(18px)',
+            border: '1px solid rgba(16, 185, 129, 0.5)',
+            boxShadow: '0 16px 44px rgba(0, 0, 0, 0.75), 0 0 25px rgba(16, 185, 129, 0.25)',
+            borderRadius: '18px',
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            maxWidth: '560px',
+            width: '90%',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            animation: 'slideUp 0.25s ease-out'
+          }}
+        >
+          <div
+            style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #10b981, #047857)',
+              border: '2px solid rgba(255,255,255,0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              flexShrink: 0
+            }}
+          >
+            🃏
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#34d399',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '2px 9px',
+                  borderRadius: '999px'
+                }}
+              >
+                BLACKJACK 21 VIP
+              </span>
+              <span style={{ fontSize: '12px', color: '#e2e8f0', fontWeight: 600 }}>
+                Natural 21 Bayar 3:2
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#ffffff', margin: '0 0 4px 0' }}>
+              VIP Blackjack 21 Table
+            </h3>
+
+            <div style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 600 }}>
+              Kalahkan kartu Dealer Roy tanpa melebihi angka 21! Fitur Hit, Stand, dan Double Down.
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              soundEffects.playEnterTable();
+              onSelectBlackjack?.();
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '14px 22px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)',
+              flexShrink: 0,
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <Play size={17} fill="#ffffff" />
+            <span>MAIN [E]</span>
           </button>
         </div>
       )}
