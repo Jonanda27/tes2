@@ -76,5 +76,7 @@ io.on('connection', (socket) => {
 // Listen on all network interfaces ('0.0.0.0') and respect dynamic Cloud Run/Replit PORT
 const PORT = Number(process.env.PORT) || (process.env.REPL_ID ? 5000 : 3050);
 httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`♠♥♦♣ Server Poker Online Texas Hold'em berjalan di http://0.0.0.0:${PORT}`);
+    console.log(`♠♥♦♣ Server Poker Online Texas Hold'em berjalan di:`);
+    console.log(`   ➜ Local:   http://localhost:${PORT}`);
+    console.log(`   ➜ Network: http://127.0.0.1:${PORT}`);
 });
